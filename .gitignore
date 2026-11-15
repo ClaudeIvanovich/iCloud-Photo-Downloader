@@ -1,0 +1,15 @@
+.venv/
+*.egg-info/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+build/
+dist/
+
+# Stage 0 probe output: real photos from a real account, never commit
+_stage0_downloads/
+*.part
+
+# Clean copy for publishing, made by scripts/make_public_copy.py
+_github/

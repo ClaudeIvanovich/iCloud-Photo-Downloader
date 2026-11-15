@@ -1,0 +1,16 @@
+# iCloud access layer. See docs/DECISIONS.md (D1, D2) before changing this line.
+#
+# The pure-Python wheel is pinned by direct URL on purpose: on Windows a plain
+# "pip install icloudpd" selects the win_amd64 wheel, which contains only a
+# prebuilt icloudpd executable and no importable pyicloud_ipd package.
+icloudpd @ https://files.pythonhosted.org/packages/d8/55/6ebee6620714b548befcf45c4873bafaa8b5a57d25c79d40ce947f1c4e04/icloudpd-1.33.0-py3-none-any.whl#sha256=3ff27038ebc17105a5c75a4202e938d4485d80880f8e88b1b4f299e9edc000b8
+
+# Password storage (Windows Credential Manager). Same version icloudpd pins.
+keyring==25.7.0
+
+# Compact JPG copies and EXIF reading. pillow-heif bundles libheif (LGPL) as a DLL.
+pillow==13.0.0
+pillow-heif==1.8.1
+
+# Windows, tray, notifications. Essentials = QtCore/QtGui/QtWidgets/QtNetwork only (LGPL-3.0).
+PySide6-Essentials==6.12.0
