@@ -28,6 +28,10 @@ def _system_backend() -> PasswordBackend:
         from keyring.backends.Windows import WinVaultKeyring
 
         return WinVaultKeyring()  # type: ignore[return-value]
+    if sys.platform == "darwin":
+        from keyring.backends.macOS import Keyring
+
+        return Keyring()  # Explicitly exclude plaintext fallback backends.
     import keyring
 
     return keyring  # type: ignore[return-value]

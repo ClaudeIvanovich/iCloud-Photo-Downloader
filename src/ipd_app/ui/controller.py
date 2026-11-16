@@ -8,6 +8,7 @@ from __future__ import annotations
 
 import logging
 import threading
+import time
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Callable
@@ -19,7 +20,7 @@ from ..accounts import PasswordStore, forget_session
 from ..config import AccountConfig, AppConfig
 from ..icloud_adapter import ICloudClient, ICloudError, LoginResult, LoginStatus, TrustedPhone
 from ..logging_setup import mask_apple_id, secret_filter
-from ..sync_engine import Period, Plan, PreflightError, Report, StateDB, SyncEngine
+from ..sync_engine import JobStopped, Period, Plan, PreflightError, Report, StateDB, SyncEngine, SyncSettings
 from ..sync_engine.state_db import JobRow
 
 log = logging.getLogger(__name__)
@@ -63,7 +64,7 @@ class Task(QThread):
         try:
             result = self._work()
         except Exception as error:  # noqa: BLE001 - delivered to the UI as a signal
-            if not isinstance(error, (ICloudError, PreflightError)):
+            if not isinstance(error, (ICloudError, PreflightError, JobStopped)):
                 log.exception("Background task failed")
             self.completed.emit(self, False, error)
         else:
@@ -124,6 +125,7 @@ class Controller(QObject):
     albums_loaded = Signal(object, str)  # list[Album] | None, error message
     job_state = Signal(str)  # idle / counting / downloading / paused / error
     job_plan = Signal(object)  # Plan
+    count_progress = Signal(int)  # distinct assets inspected during planning
     job_problem = Signal(str, str, str)  # path, kind, message
     job_finished = Signal(object, str)  # Report | None, error message
     notify = Signal(str, str, str)  # title, text, kind: info / error / relogin
@@ -148,6 +150,7 @@ class Controller(QObject):
         self._job_db: StateDB | None = None
         self._job_task: Task | None = None
         self._job_state = "idle"
+        self._preview: tuple[str, Period, SyncSettings, float, Plan] | None = None
 
     # ----------------------------------------------------------- helpers
 
@@ -205,6 +208,7 @@ class Controller(QObject):
         """Forget the saved password and session; the account stays in the list."""
         if self.is_job_running and self._is_active(apple_id):
             return False
+        self._preview = None
         self._passwords.forget(apple_id)
         forget_session(apple_id)
         key = config.account_id(apple_id)
@@ -334,7 +338,12 @@ class Controller(QObject):
             return
         self._pending_login = None
         if typed_password:
-            self._passwords.save(apple_id, typed_password)
+            try:
+                self._passwords.save(apple_id, typed_password)
+            except Exception:  # noqa: BLE001 - keychain failures must be shown to the user
+                log.error("Could not save password in system credential storage")
+                self.login_finished.emit(LoginOutcome(LoginStatus.FAILED, strings.ERR_PASSWORD_STORAGE))
+                return
         new = self.config.account(apple_id) is None
         self.config.ensure_account(apple_id)
         if new and not self.is_job_running:
@@ -404,13 +413,54 @@ class Controller(QObject):
         account = self.active()
         assert account is not None
         client = self._client(account.apple_id)
+        settings = account.to_settings()
+        preview = self._preview
+        self._preview = None
+        cached_plan = None
+        if preview is not None:
+            preview_account, preview_period, preview_settings, completed_at, plan = preview
+            if (preview_account == account.apple_id and preview_period == period
+                    and preview_settings == settings and time.monotonic() - completed_at <= 300):
+                cached_plan = plan
         self.progress.reset()
         self._job_db = StateDB(config.state_db_path(account.apple_id))
-        self._engine = SyncEngine(client, self._job_db, account.to_settings(), on_event=self._on_engine_event)
+        self._engine = SyncEngine(client, self._job_db, settings, on_event=self._on_engine_event)
         engine = self._engine
         log.info("Starting job %s for %s", period.label(), mask_apple_id(account.apple_id))
         self._set_job_state("counting")
-        self._job_task = self._spawn(lambda: engine.run(period), self._job_done, self._job_failed)
+        self._job_task = self._spawn(lambda: engine.run(period, precomputed_plan=cached_plan), self._job_done, self._job_failed)
+        return True
+
+    def start_preview(self, period: Period) -> bool:
+        """Count the work in the background without downloading any files."""
+        if self.can_start():
+            return False
+        account = self.active()
+        assert account is not None
+        self._preview = None
+        settings = account.to_settings()
+        self.progress.reset()
+        self._job_db = StateDB(config.state_db_path(account.apple_id))
+        self._engine = SyncEngine(self._client(account.apple_id), self._job_db,
+                                  settings, on_event=self._on_engine_event)
+        engine = self._engine
+        self._set_job_state("counting")
+
+        def done(plan: Plan) -> None:
+            self._preview = (account.apple_id, period, settings, time.monotonic(), plan)
+            self.progress.planned(plan)
+            self.job_plan.emit(plan)
+            self._close_job()
+            self._set_job_state("idle")
+
+        def failed(error: BaseException) -> None:
+            if isinstance(error, JobStopped):
+                self._close_job()
+                self._set_job_state("idle")
+            else:
+                self._job_failed(error)
+
+        self._job_task = self._spawn(lambda: engine.preview(period), done, failed)
         return True
 
     def pause_job(self) -> None:
@@ -433,6 +483,8 @@ class Controller(QObject):
         """Called from engine threads. Only thread-safe things happen here."""
         if name == "bytes":
             self.progress.add_bytes(data["count"])
+        elif name == "count_progress":
+            self.count_progress.emit(data["scanned"])
         elif name == "file":
             self.progress.file_event(data["path"], data["result"])
             if data["result"] in ("error", "conflict"):

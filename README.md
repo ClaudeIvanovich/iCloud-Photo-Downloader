@@ -1,5 +1,7 @@
 # iCloud Photo Downloader для Windows
 
+**Версия для macOS:** SwiftUI-приложение для Apple Silicon с русским и английским интерфейсом. Инструкции по сборке, ограничения и проверка — в [docs/MACOS.md](docs/MACOS.md).
+
 Скачивает фото и видео из iCloud Photos за выбранный период и раскладывает их по папкам `ГГГГ\ММ Month\Full size` (оригиналы) и `Compact` (JPG-копии). В iCloud ничего не меняет.
 
 *A Windows desktop app that downloads photos and videos from iCloud Photos for a chosen period into `YYYY\MM Month\Full size` (originals) and `Compact` (JPG copies). It is read-only: nothing in iCloud is ever changed or deleted. The interface is in Russian. English 🇬🇧, Spanish 🇪🇸 and Chinese 🇨🇳 locales are planned to be added soon.*

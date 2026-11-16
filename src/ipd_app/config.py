@@ -12,7 +12,9 @@ from __future__ import annotations
 
 import hashlib
 import json
+import ntpath
 import os
+import sys
 import time
 from dataclasses import asdict, dataclass, field, fields
 from pathlib import Path
@@ -30,6 +32,8 @@ def app_data_dir() -> Path:
     override = os.environ.get("IPD_APPDATA")
     if override:
         return Path(override)
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Application Support" / APP_DIR_NAME
     base = os.environ.get("APPDATA") or str(Path.home() / ".config")
     return Path(base) / APP_DIR_NAME
 
@@ -38,6 +42,8 @@ def log_dir() -> Path:
     override = os.environ.get("IPD_APPDATA")
     if override:
         return Path(override) / "logs"
+    if sys.platform == "darwin":
+        return Path.home() / "Library" / "Logs" / APP_DIR_NAME
     base = os.environ.get("LOCALAPPDATA") or str(Path.home() / ".local" / "state")
     return Path(base) / APP_DIR_NAME / "logs"
 
@@ -116,13 +122,19 @@ class AppConfig:
         mine = self.account(apple_id)
         if mine is None or not mine.root_dir:
             return []
-        own = os.path.normcase(os.path.abspath(mine.root_dir))
+        def comparable(path: str) -> str:
+            # Recognise Windows drive paths even when configs/tests are read on macOS.
+            if ntpath.splitdrive(path)[0]:
+                return ntpath.normcase(ntpath.normpath(path))
+            return os.path.normcase(os.path.realpath(path))
+
+        own = comparable(mine.root_dir)
         return [
             other.apple_id
             for key, other in self.accounts.items()
             if key != account_id(apple_id)
             and other.root_dir
-            and os.path.normcase(os.path.abspath(other.root_dir)) == own
+            and comparable(other.root_dir) == own
         ]
 
 
