@@ -481,4 +481,14 @@ def test_events_describe_the_job(client, make_engine) -> None:
     assert states == ["counting", "downloading", "idle"]
     assert names.index("plan") < names.index("bytes") < names.index("report")
     assert sum(data["count"] for name, data in engine.events if name == "bytes") == 5
+    assert [data["scanned"] for name, data in engine.events if name == "count_progress"] == [0, 1]
     assert MediaType.PHOTO and datetime  # imports used by helpers
+
+
+def test_resume_during_counting_restores_counting_status(make_engine) -> None:
+    engine = make_engine()
+    engine._emit("status", state="counting")
+    engine.pause()
+    engine.resume()
+    states = [data["state"] for name, data in engine.events if name == "status"]
+    assert states == ["counting", "paused", "counting"]

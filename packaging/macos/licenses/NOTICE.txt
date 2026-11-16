@@ -1,0 +1,12 @@
+iCloud Photo Downloader for macOS — third-party notices
+
+PySide6 Essentials and shiboken6 6.8.3 are available under LGPL 3.0, GPL 2.0,
+or GPL 3.0. The application uses PySide6 as dynamically loaded libraries.
+Source: https://code.qt.io/cgit/pyside/pyside-setup.git/tag/?h=v6.8.3
+Qt source: https://download.qt.io/official_releases/qt/6.8/6.8.3/
+The corresponding license texts are included alongside this notice.
+
+pillow-heif supplies its own license and notices for bundled libheif,
+libde265 and x265 in the pillow_heif directory in this Licenses folder.
+The other Python package notices distributed in their wheels are included in
+named folders. See the project's README for the dependency overview.

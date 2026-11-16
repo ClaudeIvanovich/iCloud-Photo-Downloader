@@ -7,6 +7,7 @@ from __future__ import annotations
 
 ERR_BAD_CREDENTIALS = "Неверный Apple ID или пароль."
 ERR_BAD_2FA_CODE = "Код подтверждения не принят."
+ERR_PASSWORD_STORAGE = "Не удалось сохранить пароль в системном хранилище. Проверьте доступ к нему."
 ERR_SESSION_EXPIRED = "Сессия истекла, войдите заново."
 ERR_ADP = (
     "Включена Advanced Data Protection. С ней веб-доступ к фото закрыт. "

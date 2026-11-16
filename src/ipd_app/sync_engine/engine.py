@@ -154,6 +154,7 @@ class SyncEngine:
         self._running = threading.Event()  # cleared while paused
         self._running.set()
         self._stop_reason: str | None = None
+        self._phase = "counting"
         self._last_space_check = 0.0
         self._report = Report()
         self._period = Period()
@@ -168,7 +169,7 @@ class SyncEngine:
 
     def resume(self) -> None:
         self._running.set()
-        self._emit("status", state="downloading")
+        self._emit("status", state=self._phase)
 
     def stop(self, reason: str = strings.STOP_USER) -> None:
         if self._stop_reason is None:
@@ -181,6 +182,8 @@ class SyncEngine:
         return self._run_lock.locked()
 
     def _emit(self, name: str, **payload: Any) -> None:
+        if name == "status" and payload.get("state") in ("counting", "downloading"):
+            self._phase = payload["state"]
         if self._on_event is None:
             return
         try:
@@ -376,8 +379,13 @@ class SyncEngine:
     def plan(self, period: Period) -> Plan:
         """Pass 1: what is in the period and how much of it is already on disk."""
         plan = Plan()
+        scanned = 0
+        self._emit("count_progress", scanned=0)
         for asset in self._listing(period):
             self._checkpoint()
+            scanned += 1
+            if scanned % 25 == 0:
+                self._emit("count_progress", scanned=scanned)
             item = self._plan_asset(asset, period)
             if item is None or item.in_period is False:
                 continue
@@ -409,6 +417,7 @@ class SyncEngine:
                 if task.compact_needed:
                     plan.compact_to_make += 1
                     plan.compact_bytes += estimate_compact_bytes(task.version.size, self.settings)
+        self._emit("count_progress", scanned=scanned)
         return plan
 
     def preview(self, period: Period) -> Plan:
@@ -435,7 +444,7 @@ class SyncEngine:
         self._running.set()
         self._stop_reason = None
 
-    def run(self, period: Period) -> Report:
+    def run(self, period: Period, *, precomputed_plan: Plan | None = None) -> Report:
         """Run a job to the end, or until it is stopped. Never raises for
         problems with individual files; those go into the report."""
         if not self._run_lock.acquire(blocking=False):
@@ -456,7 +465,9 @@ class SyncEngine:
             try:
                 self._emit("status", state="counting")
                 self._cleanup_parts(period)
-                report.plan = self.plan(period)
+                # A recent preview may be reused. _fetch still rechecks every
+                # asset against the filesystem and preflight checks free space.
+                report.plan = precomputed_plan if precomputed_plan is not None else self.plan(period)
                 log.info(
                     "Plan for %s: %d in period, %d present, %d to download (%d bytes), %d boundary, %d conflicts",
                     period.label(),

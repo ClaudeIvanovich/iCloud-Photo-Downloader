@@ -13,3 +13,6 @@ _stage0_downloads/
 
 # Clean copy for publishing, made by scripts/make_public_copy.py
 _github/
+
+.venv-macos/
+.DS_Store

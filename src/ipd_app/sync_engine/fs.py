@@ -7,6 +7,8 @@ temporary artefacts: `*.part` files and the empty `_incoming` folder.
 
 from __future__ import annotations
 
+import ctypes
+import errno
 import os
 import sys
 import time
@@ -62,7 +64,24 @@ def publish(part: Path, target: Path, mtime: float | None = None) -> bool:
     source, destination = long_path(part), long_path(target)
     for attempt in range(_REPLACE_RETRIES):
         try:
-            os.rename(source, destination)  # unlike os.replace, never clobbers on Windows
+            if sys.platform == "darwin":
+                # POSIX rename replaces an existing destination, even after an
+                # exists() check. Darwin's RENAME_EXCL is atomic and fails closed.
+                libc = ctypes.CDLL(None, use_errno=True)
+                rename = libc.renamex_np
+                rename.argtypes = (ctypes.c_char_p, ctypes.c_char_p, ctypes.c_uint)
+                rename.restype = ctypes.c_int
+                if rename(os.fsencode(source), os.fsencode(destination), 0x4) != 0:
+                    code = ctypes.get_errno()
+                    if code == errno.EEXIST:
+                        return False
+                    raise OSError(code, os.strerror(code), destination)
+            elif sys.platform == "win32":
+                os.rename(source, destination)
+            else:
+                # Hard-link creation is exclusive; unlike rename it cannot replace.
+                os.link(source, destination)
+                os.unlink(source)
             break
         except FileExistsError:
             return False

@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import gc
 import os
+import threading
 import time
 from datetime import date, timedelta
 
@@ -99,6 +100,22 @@ def ready(controller: Controller, root) -> None:
 # ------------------------------------------------------------- controller
 
 
+def test_keychain_failure_reports_error_without_adding_account(controller, monkeypatch) -> None:
+    def fail_save(*_args):
+        raise RuntimeError("keychain locked")
+
+    monkeypatch.setattr(controller.backend, "set_password", fail_save)
+    outcomes = []
+    controller.login_finished.connect(outcomes.append)
+    controller.begin_login(APPLE_ID, "pw")
+    wait_for(lambda: len(outcomes) == 1)
+    controller.submit_code("123456")
+    wait_for(lambda: len(outcomes) == 2)
+    assert outcomes[-1].status is LoginStatus.FAILED
+    assert outcomes[-1].message == strings.ERR_PASSWORD_STORAGE
+    assert controller.accounts() == []
+
+
 def test_login_with_2fa_saves_password_and_account(controller, tmp_path) -> None:
     outcomes = []
     controller.login_finished.connect(outcomes.append)
@@ -170,6 +187,56 @@ def test_job_runs_in_background_and_reports(controller, fake, tmp_path) -> None:
     assert controller.progress.snapshot()[:4] == (6, 6, 12000, 12000)
     assert notes == [(UI.NOTE_DONE_TITLE, "info")]
     assert controller.unfinished_job() is None
+
+
+@pytest.mark.parametrize("change", ["none", "settings", "expired"])
+def test_recent_preview_is_reused_only_for_the_same_settings(controller, fake, tmp_path, change) -> None:
+    root = tmp_path / "photos"
+    root.mkdir()
+    fake.add("IMG_1.JPG", b"photo", taken=utc(2023, 5, 1))
+    ready(controller, root)
+    plans, finished = [], []
+    controller.job_plan.connect(plans.append)
+    controller.job_finished.connect(lambda report, error: finished.append((report, error)))
+
+    assert controller.start_preview(YEAR_2023)
+    wait_for(lambda: plans and not controller.is_job_running)
+    assert fake.listings == 1 and not tree(root)
+    if change == "settings":
+        controller.update_active(live_video=False)
+    elif change == "expired":
+        account, period, settings, completed, plan = controller._preview
+        controller._preview = (account, period, settings, completed - 301, plan)
+    assert controller.start_job(YEAR_2023)
+    wait_for(lambda: finished)
+    assert finished[0][0].downloaded == 1
+    assert fake.listings == (2 if change == "none" else 3)
+
+
+def test_stopping_preview_returns_to_idle_without_an_error(controller, fake, tmp_path, monkeypatch) -> None:
+    root = tmp_path / "photos"
+    root.mkdir()
+    fake.add("IMG_1.JPG", b"photo", taken=utc(2023, 5, 1))
+    ready(controller, root)
+    entered, release = threading.Event(), threading.Event()
+    original = fake.iter_assets
+
+    def slow_listing(asset_filter):
+        entered.set()
+        release.wait(5)
+        yield from original(asset_filter)
+
+    monkeypatch.setattr(fake, "iter_assets", slow_listing)
+    finished = []
+    controller.job_finished.connect(lambda report, error: finished.append((report, error)))
+    assert controller.start_preview(YEAR_2023)
+    try:
+        wait_for(entered.is_set)
+        controller.stop_job()
+    finally:
+        release.set()
+    wait_for(lambda: not controller.is_job_running)
+    assert controller.job_state_name == "idle" and finished == []
 
 
 def test_switching_account_is_refused_while_a_job_runs(controller, fake, tmp_path) -> None:
