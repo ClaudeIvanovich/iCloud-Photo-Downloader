@@ -38,6 +38,7 @@ from .errors import (
     DownloadCancelled,
     ICloudError,
     LibraryNotReadyError,
+    LinkExpiredError,
     NetworkError,
     SecurityKeyRequiredError,
     ServiceUnavailableError,
@@ -212,6 +213,8 @@ def translate(error: BaseException, adp_hint: bool = False) -> Exception:
         code = str(error.code or "")
         if code in RETRYABLE_CODES:
             return ServiceUnavailableError(text)
+        if code == "410":
+            return LinkExpiredError(text)
         if code == "ACCESS_DENIED":
             return AdvancedDataProtectionError(text) if adp_hint else ServiceUnavailableError(text)
         if (

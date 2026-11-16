@@ -19,7 +19,7 @@ from .. import __version__, config, strings
 from ..accounts import MemoryPasswordBackend, PasswordStore
 from ..logging_setup import setup_logging
 from ..strings import UI
-from . import icons
+from . import icons, theme
 from .controller import Controller
 from .main_window import MainWindow
 
@@ -135,6 +135,8 @@ def run_gui(fake: int | None = None, start_hidden: bool = False, language: str |
     except Exception:  # noqa: BLE001 - a damaged config is reported later, by the controller
         saved_choice = strings.AUTO
     apply_language(app, language or saved_choice)
+    theme.apply_theme(app)
+    theme.follow_system(app)
     app.setApplicationName(UI.APP_TITLE)
     app.setApplicationVersion(__version__)
     app.setWindowIcon(icons.icon("idle"))

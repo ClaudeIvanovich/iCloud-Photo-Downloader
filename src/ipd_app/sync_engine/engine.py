@@ -3,7 +3,11 @@
 One job = two listings of the period:
   1. plan   - count what is in the period, what is already on disk, what to fetch;
   2. fetch  - list again and download as assets stream by, so download links are
-              always fresh and memory use does not depend on the library size.
+              fresh and memory use does not depend on the library size.
+
+A link can still go stale when the job stalls for a long time (HTTP 410). Such
+files are put aside and, once the listing is through, fetched with fresh links
+from one more listing.
 
 The engine knows nothing about Qt. It reports through a single callback and is
 driven by pause() / resume() / stop() from any thread.
@@ -30,6 +34,7 @@ from ..icloud_adapter import (
     DownloadCancelled,
     ICloudClient,
     ICloudError,
+    LinkExpiredError,
     SessionExpiredError,
     VersionKind,
 )
@@ -52,6 +57,7 @@ from .state_db import (
 log = logging.getLogger(__name__)
 
 MAX_ATTEMPTS = 5
+FRESH_LINK_ROUNDS = 2  # extra listings for files whose download link went stale
 SPACE_CHECK_INTERVAL = 2.0
 
 ACTION_PRESENT = "present"
@@ -60,6 +66,16 @@ ACTION_CONFLICT = "conflict"
 ACTION_SKIP_DELETED = "skip_deleted"
 
 EventCallback = Callable[..., None]
+
+
+@dataclass(frozen=True)
+class _Stale:
+    """A download that failed only because its link was too old."""
+
+    kind: VersionKind
+    label: str
+    failure: str
+    has_row: bool
 
 
 class JobStopped(Exception):
@@ -159,6 +175,9 @@ class SyncEngine:
         self._period = Period()
         self._compact_pool: ThreadPoolExecutor | None = None
         self._compact_slots: threading.BoundedSemaphore | None = None
+        # Files put aside because their link went stale: asset id -> what failed.
+        self._stale: dict[str, list[_Stale]] = {}
+        self._last_round = False
 
     # ------------------------------------------------------------ control
 
@@ -429,6 +448,8 @@ class SyncEngine:
         # so the control flags are cleared when a run ends, not when it starts.
         self._last_space_check = 0.0
         self._report = Report()
+        self._stale = {}
+        self._last_round = False
 
     def _clear_controls(self) -> None:
         self._stop.clear()
@@ -547,13 +568,47 @@ class SyncEngine:
             log.info("Removed %d unfinished temp files", removed)
 
     def _fetch(self, period: Period) -> None:
-        """Pass 2: download while listing, with a bounded number of assets in flight."""
+        """Pass 2: download while listing, then go back for the files whose link went stale."""
+        self._fetch_pass(period, self._listing(period), None)
+        for round_number in range(1, FRESH_LINK_ROUNDS + 1):
+            with self._report_lock:
+                stale, self._stale = self._stale, {}
+            if not stale:
+                break
+            self._last_round = round_number == FRESH_LINK_ROUNDS
+            log.info("Download links of %d assets went stale; listing again for fresh ones", len(stale))
+            left = dict(stale)
+            try:
+                self._fetch_pass(period, self._relisted(period, left), stale)
+            finally:
+                # Not met in the new listing (or the listing broke): say so. After a
+                # stop nothing is reported - the next run takes these files anyway.
+                if not self._stop.is_set():
+                    for asset_id, items in left.items():
+                        for item in items:
+                            self._fail(asset_id, item.kind, item.label, item.failure, item.has_row)
+
+    def _relisted(self, period: Period, left: dict[str, list[_Stale]]):
+        """Assets from `left` as a new listing returns them; stops as soon as all are found."""
+        for asset in self._listing(period):
+            if left.pop(asset.id, None) is not None:
+                yield asset
+                if not left:
+                    return
+            else:
+                self._emit("checked")  # the window shows that the job is alive
+
+    def _fetch_pass(self, period: Period, assets, stale: dict[str, list[_Stale]] | None) -> None:
+        """Download the assets with a bounded number of them in flight."""
         slots = threading.BoundedSemaphore(self.settings.concurrency * 2)
         pool = ThreadPoolExecutor(self.settings.concurrency, thread_name_prefix="download")
 
         def work(asset: Asset) -> None:
             try:
-                self._process(asset, period)
+                only = None
+                if stale is not None and all(item.has_row for item in stale[asset.id]):
+                    only = {item.kind for item in stale[asset.id]}
+                self._process(asset, period, only)
             except JobStopped:
                 pass
             except Exception as error:  # noqa: BLE001 - one bad asset must not end the job
@@ -563,7 +618,7 @@ class SyncEngine:
                 slots.release()
 
         try:
-            for asset in self._listing(period):
+            for asset in assets:
                 self._checkpoint()
                 while not slots.acquire(timeout=0.2):
                     self._checkpoint()
@@ -575,7 +630,8 @@ class SyncEngine:
 
     # --------------------------------------------------------- one asset
 
-    def _process(self, asset: Asset, period: Period) -> None:
+    def _process(self, asset: Asset, period: Period, only: set[VersionKind] | None = None) -> None:
+        """`only` narrows the work to some versions: the others were dealt with in an earlier pass."""
         self._checkpoint()
         plan = self._plan_asset(asset, period)
         if plan is None or plan.in_period is False:
@@ -586,6 +642,8 @@ class SyncEngine:
             if plan is None:
                 return
         for task in plan.tasks:
+            if only is not None and task.kind not in only:
+                continue
             self._checkpoint()
             ready = False
             if task.kind in placed:
@@ -676,6 +734,7 @@ class SyncEngine:
             self._check_space()
             failure: str
             retry = False
+            stale = False
             try:
                 self.client.download(asset, kind, Path(fs.long_path(part)), self._on_bytes)
                 got = fs.size_of(part)
@@ -691,6 +750,7 @@ class SyncEngine:
                 raise JobStopped from None
             except ICloudError as error:
                 failure, retry = error.user_message, error.transient
+                stale = isinstance(error, LinkExpiredError) and not self._last_round
                 log.warning("Download of %s failed (attempt %d): %s", label, attempt, error)
             except _SizeMismatch as error:
                 failure, retry = str(error), True
@@ -705,11 +765,18 @@ class SyncEngine:
             if retry and attempt < self._max_attempts:
                 self._wait(self._backoff(attempt))
                 continue
-            if has_row:
-                self.db.set_status(asset.id, kind, STATUS_ERROR, failure)
-            self._record_error(label, failure)
+            if stale:  # a fresh link is all it needs: put the file aside for the next listing
+                with self._report_lock:
+                    self._stale.setdefault(asset.id, []).append(_Stale(kind, label, failure, has_row))
+                return False
+            self._fail(asset.id, kind, label, failure, has_row)
             return False
         return False
+
+    def _fail(self, asset_id: str, kind: VersionKind, label: str, failure: str, has_row: bool) -> None:
+        if has_row:
+            self.db.set_status(asset_id, kind, STATUS_ERROR, failure)
+        self._record_error(label, failure)
 
     # ------------------------------------------------------------ compact
 

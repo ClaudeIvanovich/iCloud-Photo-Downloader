@@ -10,6 +10,7 @@ from conftest import image_bytes, make_exif, mov_bytes, tree, utc
 from ipd_app import strings
 from ipd_app.icloud_adapter import (
     ICloudError,
+    LinkExpiredError,
     MediaType,
     NetworkError,
     ServiceUnavailableError,
@@ -235,6 +236,65 @@ def test_permanent_error_is_not_retried(client, make_engine) -> None:
     client.fail(asset, ICloudError("gone"))
     report = make_engine().run(YEAR_2023)
     assert len(report.errors) == 1 and len(client.download_calls) == 1
+
+
+def test_stale_link_is_replaced_by_a_fresh_one_in_the_same_job(client, make_engine, root) -> None:
+    late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 1), live=b"video")
+    client.add("GOOD.JPG", b"ok", taken=utc(2023, 5, 2))
+    client.fail(late, LinkExpiredError("Gone (410)"))
+    listings = client.listings
+    report = make_engine().run(YEAR_2023)
+    assert report.finished and not report.errors
+    assert report.downloaded == 3 and report.skipped == 0  # nothing is counted twice
+    assert client.download_calls.count((late.id, VersionKind.ORIGINAL)) == 2
+    assert client.download_calls.count((late.id, VersionKind.LIVE_VIDEO)) == 1
+    assert client.listings - listings == 3  # plan, fetch, one more for the fresh link
+    assert tree(root) == [
+        "2023/05 May/Full size/GOOD.JPG",
+        "2023/05 May/Full size/LATE.JPG",
+        "2023/05 May/Full size/LATE.MOV",
+    ]
+
+
+def test_going_back_for_a_fresh_link_reports_the_files_it_passes(client, make_engine) -> None:
+    client.add("GOOD.JPG", b"ok", taken=utc(2023, 5, 1))
+    late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 2))
+    client.fail(late, LinkExpiredError("Gone (410)"))
+    engine = make_engine()
+    assert engine.run(YEAR_2023).downloaded == 2
+    assert [name for name, _ in engine.events].count("checked") == 1  # GOOD, on the way to LATE
+
+
+def test_link_that_stays_stale_ends_as_an_error(client, make_engine, root) -> None:
+    late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 1))
+    client.fail(late, *[LinkExpiredError("Gone (410)")] * 5)
+    report = make_engine().run(YEAR_2023)
+    assert report.finished
+    assert report.errors == [("2023/05 May/Full size/LATE.JPG", strings.ERR_LINK_EXPIRED)]
+    assert client.download_calls.count((late.id, VersionKind.ORIGINAL)) == 3  # the pass and two more listings
+    assert tree(root) == []
+
+    assert make_engine().run(YEAR_2023).downloaded == 1  # and the next job takes it
+
+
+def test_file_removed_from_icloud_while_waiting_for_a_fresh_link(client, make_engine) -> None:
+    late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 1))
+    client.add("GOOD.JPG", b"ok", taken=utc(2023, 5, 2))
+    client.fail(late, LinkExpiredError("Gone (410)"))
+    engine = make_engine()
+    download = client.download
+
+    def vanishing(asset, version, dest_path, progress_cb=None):
+        try:
+            download(asset, version, dest_path, progress_cb)
+        except LinkExpiredError:
+            del client.assets[asset.id]
+            raise
+
+    client.download = vanishing
+    report = engine.run(YEAR_2023)
+    assert report.finished and report.downloaded == 1
+    assert [name for name, _ in report.errors] == ["2023/05 May/Full size/LATE.JPG"]
 
 
 def test_leftover_part_file_is_removed_and_fetched_again(client, make_engine, root) -> None:

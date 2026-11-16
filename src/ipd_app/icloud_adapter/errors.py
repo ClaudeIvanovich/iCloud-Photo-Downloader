@@ -61,5 +61,13 @@ class ServiceUnavailableError(ICloudError):
     transient = True
 
 
+class LinkExpiredError(ICloudError):
+    """HTTP 410 on a download link. iCloud hands the links out with the listing
+    and they live for a limited time. The same link will never work again, but
+    a fresh listing gives a new one."""
+
+    message_key = "ERR_LINK_EXPIRED"
+
+
 class DownloadCancelled(Exception):
     """Raised from a progress callback to abort a download in flight."""

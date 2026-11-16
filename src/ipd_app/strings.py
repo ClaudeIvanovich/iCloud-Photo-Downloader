@@ -33,6 +33,7 @@ ERR_SECURITY_KEY = "Вход через аппаратные ключи безо
 ERR_NETWORK = "Нет связи с серверами iCloud. Проверьте интернет."
 ERR_UNAVAILABLE = "iCloud временно недоступен или ограничил запросы. Повторите позже."
 ERR_LIBRARY_NOT_READY = "Медиатека iCloud ещё не готова (идёт индексация). Повторите позже."
+ERR_LINK_EXPIRED = "Ссылка на файл устарела, пока до него дошла очередь. Запустите задание ещё раз."
 ERR_ICLOUD_GENERIC = "Ошибка iCloud: {detail}"
 
 ERR_NO_ROOT = "Не выбрана папка для загрузки. Выберите её в настройках аккаунта."
@@ -46,6 +47,7 @@ ERR_JOB_RUNNING = "Задание уже выполняется."
 STATUS_IDLE = "Ожидание"
 STATUS_COUNTING = "Подсчёт новых файлов"
 STATUS_DOWNLOADING = "Загрузка"
+STATUS_SEARCHING = "Поиск недостающих файлов"
 STATUS_PAUSED = "Пауза"
 STATUS_ERROR = "Ошибка"
 
@@ -97,7 +99,6 @@ class UI:
     DATE_FROM = "С"
     DATE_TO = "по"
     ALL_TIME = "Весь период"
-    PRESET_THIS_YEAR = "Этот год"
     PRESET_LAST_YEAR = "Прошлый год"
     PRESET_30_DAYS = "Последние 30 дней"
     BTN_START = "Запустить задание"
@@ -115,6 +116,7 @@ class UI:
     PROGRESS_SPEED = "Скорость: {speed}/с"
     PROGRESS_ETA = "Осталось: {eta}"
     PROGRESS_CURRENT = "Сейчас: {name}"
+    PROGRESS_CHECKED = "Проверено: {count}"
     DASH = "—"
     GROUP_LAST = "Последний запуск"
     LAST_NONE = "Заданий ещё не было."
@@ -256,8 +258,9 @@ LANGUAGES = {
     "es": "Español",
     "pt_BR": "Português (Brasil)",
     "zh_CN": "简体中文",
+    "ja": "日本語",
 }
-_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN"}
+_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN", "ja": "ja"}
 
 
 def _texts(holder: object) -> dict[str, object]:
@@ -278,9 +281,9 @@ current_language = DEFAULT_LANGUAGE
 def _translation(code: str) -> _ModuleType | None:
     if code == DEFAULT_LANGUAGE:
         return None
-    from .locales import en, es, pt_br, zh_cn
+    from .locales import en, es, ja, pt_br, zh_cn
 
-    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn}[code]
+    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja}[code]
 
 
 def set_language(code: str) -> str:

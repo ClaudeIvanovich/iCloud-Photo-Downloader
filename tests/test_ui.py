@@ -11,7 +11,7 @@ os.environ.setdefault("QT_QPA_PLATFORM", "offscreen")
 
 import pytest
 from PySide6.QtCore import QCoreApplication, QEvent, QEventLoop
-from PySide6.QtWidgets import QApplication, QDialog
+from PySide6.QtWidgets import QApplication, QDialog, QLabel
 
 from conftest import tree, utc
 from ipd_app import config, strings
@@ -290,8 +290,6 @@ def test_period_validation_and_presets(window, controller, tmp_path) -> None:
     today = date.today()
     window.preset_last_year.click()
     assert window.period() == Period(date(today.year - 1, 1, 1), date(today.year - 1, 12, 31))
-    window.preset_this_year.click()
-    assert window.period() == Period(date(today.year, 1, 1), today)
     window.preset_30_days.click()
     assert window.period() == Period(today - timedelta(days=30), today)
     window.all_time.setChecked(True)
@@ -384,6 +382,105 @@ def test_close_hides_to_tray_and_exit_goes_through_the_menu(window, controller, 
 
     window.tray.exit_action.trigger()  # no job running: exits without questions
     assert window._quitting and not window.isVisible()
+
+
+def test_only_the_buttons_that_can_act_are_on_screen(window, controller, fake, tmp_path) -> None:
+    root = tmp_path / "photos"
+    root.mkdir()
+    for index in range(40):
+        fake.add(f"IMG_{index}.JPG", b"z" * 100_000, taken=utc(2023, 5, 1 + index % 28))
+    ready(controller, root)
+    controller.update_active(concurrency=1)
+    window.set_period(date(2023, 1, 1), date(2023, 12, 31))
+    assert not window.start_button.isHidden() and window.pause_button.isHidden() and window.stop_button.isHidden()
+    assert window.percent_label.text() == "0%"
+    window.start_button.click()
+    wait_for(lambda: controller.job_state_name == "downloading")
+    assert window.start_button.isHidden() and not window.pause_button.isHidden() and not window.stop_button.isHidden()
+    window.stop_button.click()
+    wait_for(lambda: not controller.is_job_running)
+    assert not window.start_button.isHidden() and window.pause_button.isHidden()
+
+
+def test_window_says_so_while_the_job_runs_past_files_it_already_has(window, controller, monkeypatch) -> None:
+    from ipd_app.ui import main_window
+
+    clock = [1000.0]
+    monkeypatch.setattr(main_window.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(controller, "_job_task", object())
+    monkeypatch.setattr(controller, "_job_state", "downloading")
+    window._on_job_state("downloading")
+    for _ in range(40):
+        controller.progress.file_event("2023/05 May/Full size/IMG_1.JPG", "present")
+    window._tick()
+    assert strings.STATUS_SEARCHING in window.status_label.text()
+    assert window.current_label.full_text() == UI.PROGRESS_CHECKED.format(count=40)
+    assert window.speed_label.text() == "" and window.progress_bar.maximum() == 0
+
+    # a download begins: the usual picture is back at once
+    controller.progress.file_event("2023/04 April/Full size/IMG_2.JPG", "started")
+    controller.progress.add_bytes(5000)
+    clock[0] += 0.5
+    window._tick()
+    assert strings.STATUS_DOWNLOADING in window.status_label.text()
+    assert window.current_label.full_text() == "IMG_2.JPG" and window.progress_bar.maximum() == 1000
+
+    # an already present file passing by during a download changes nothing
+    controller.progress.file_event("2023/05 May/Full size/IMG_3.JPG", "present")
+    clock[0] += 0.5
+    window._tick()
+    assert strings.STATUS_DOWNLOADING in window.status_label.text()
+
+
+def test_long_file_name_loses_its_middle(qapp) -> None:
+    from ipd_app.ui.main_window import ElidedLabel
+
+    label = ElidedLabel()
+    label.show()  # resize events only reach a widget that is on screen
+    label.resize(300, 20)
+    name = "свадьба александра и ирины в городе москва.mov"
+    label.setText(name)
+    assert label.full_text() == name and label.text() != name
+    assert label.text().startswith("св") and label.text().endswith("mov") and "…" in label.text()
+    label.resize(900, 20)
+    assert label.text() == name
+    label.setText("IMG_1.JPG")
+    assert label.text() == "IMG_1.JPG"
+
+
+def test_the_chip_of_the_shown_period_is_lit(window, controller, tmp_path) -> None:
+    sign_in(controller)
+    controller.update_active(root_dir=str(tmp_path))
+    window.preset_last_year.click()
+    assert window.preset_last_year.isChecked() and not window.preset_30_days.isChecked()
+    window.set_period(date(2020, 2, 3), date(2020, 4, 5))  # dates typed by hand match no chip
+    assert not window.preset_last_year.isChecked() and not window.preset_30_days.isChecked()
+    window.preset_30_days.click()
+    assert window.preset_30_days.isChecked()
+    window.all_time.setChecked(True)
+    assert not window.preset_30_days.isChecked() and window.period() == Period()
+
+
+@pytest.mark.parametrize("dark", [False, True])
+def test_theme_dresses_the_application_in_both_schemes(dark, qapp, monkeypatch, tmp_path) -> None:
+    from ipd_app.ui import theme
+
+    monkeypatch.setenv("IPD_APPDATA", str(tmp_path))
+    before = (qapp.style().objectName(), qapp.styleSheet(), qapp.palette(), qapp.font())
+    try:
+        assert theme.apply_theme(qapp, dark=dark) is dark
+        palette = theme.DARK if dark else theme.LIGHT
+        assert theme.colors() is palette and palette["accent"] in qapp.styleSheet()
+        assert set(theme.LIGHT) == set(theme.DARK)
+        assert (tmp_path / "theme" / f"check_{'dark' if dark else 'light'}.png").is_file()
+        label = QLabel("x")
+        theme.set_role(label, "danger")
+        assert label.property("role") == "danger"
+    finally:
+        qapp.setStyleSheet(before[1])
+        qapp.setStyle(before[0])
+        qapp.setPalette(before[2])
+        qapp.setFont(before[3])
 
 
 def test_login_dialog_walks_through_code_page(controller, qapp) -> None:
@@ -526,7 +623,7 @@ def visible_texts(widget) -> list[str]:
     return [text for text in found if text]
 
 
-@pytest.mark.parametrize("code", ["en", "es", "pt_BR", "zh_CN"])
+@pytest.mark.parametrize("code", ["en", "es", "pt_BR", "zh_CN", "ja"])
 def test_no_russian_text_is_left_in_any_window(code, controller, fake, tmp_path, qapp) -> None:
     import re
 
@@ -573,4 +670,4 @@ def test_choosing_a_language_is_saved_for_the_next_start(window, controller, mon
     window._language_chosen(index)
     assert config.load_config().language == "es"
     assert told == [UI.LANGUAGE_RESTART]  # the running window stays in the old language
-    assert [window.language_combo.itemText(i) for i in range(1, 6)] == list(strings.LANGUAGES.values())
+    assert [window.language_combo.itemText(i) for i in range(1, window.language_combo.count())] == list(strings.LANGUAGES.values())
