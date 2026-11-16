@@ -95,6 +95,7 @@ class JobProgress:
             self.total_bytes = 0
             self.done_bytes = 0
             self.current = ""
+            self.checked = 0  # files the job went past because they need nothing
 
     def planned(self, plan: Plan) -> None:
         with self._lock:
@@ -111,6 +112,16 @@ class JobProgress:
                 self.current = path
             elif result == "downloaded":
                 self.done_files += 1
+            elif result == "present":
+                self.checked += 1
+
+    def passed(self) -> None:
+        with self._lock:
+            self.checked += 1
+
+    def checked_files(self) -> int:
+        with self._lock:
+            return self.checked
 
     def snapshot(self) -> tuple[int, int, int, int, str]:
         with self._lock:
@@ -442,6 +453,8 @@ class Controller(QObject):
             self.progress.file_event(data["path"], data["result"])
             if data["result"] in ("error", "conflict"):
                 self.job_problem.emit(data["path"], data["result"], data.get("message", ""))
+        elif name == "checked":
+            self.progress.passed()
         elif name == "plan":
             self.progress.planned(data["plan"])
             self.job_plan.emit(data["plan"])

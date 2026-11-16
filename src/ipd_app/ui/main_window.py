@@ -66,6 +66,8 @@ def state_label(state: str) -> str:
 
 
 SPEED_WINDOW_SECONDS = 5.0
+# The job is "searching" when files keep being checked and no bytes arrive for this long.
+SEARCH_AFTER_SECONDS = 2.0
 
 
 def format_eta(seconds: float) -> str:
@@ -172,9 +174,13 @@ class MainWindow(QMainWindow):
         self._told_about_tray = False
         self._resume_offered: set[str] = set()
         self._samples: deque[tuple[float, int]] = deque()
+        self._seen_bytes = 0
+        self._seen_checked = 0
+        self._bytes_at = float("-inf")
+        self._checked_at = float("-inf")
+        self._searching = False
         self.setWindowTitle(UI.APP_TITLE)
         self.setWindowIcon(icons.icon("idle"))
-        self.setMinimumWidth(680)
 
         # --- header: who is signed in, and the rarely used windows as icons
         self.account_combo = QComboBox()
@@ -371,6 +377,9 @@ class MainWindow(QMainWindow):
         self._refresh_accounts()
         self._on_session(*controller.session_state())
         self._tick()
+        # No fixed minimum width: the layout knows how much the texts of the chosen
+        # language need, and a fixed number would let the window clip them.
+        self.resize(max(680, self.sizeHint().width()), self.sizeHint().height())
 
     @staticmethod
     def _card(title: str) -> tuple[QFrame, QVBoxLayout, QHBoxLayout]:
@@ -648,15 +657,38 @@ class MainWindow(QMainWindow):
         self.bytes_label.setText(
             UI.PROGRESS_BYTES.format(done=format_size(done_bytes), total=format_size(total_bytes))
         )
+        # A job that resumes, or goes back for a few files, first runs through
+        # everything already on disk. Nothing downloads then: say what is going on.
+        checked = self.controller.progress.checked_files()
+        if done_bytes != self._seen_bytes:
+            self._seen_bytes, self._bytes_at = done_bytes, now
+        if checked != self._seen_checked:
+            self._seen_checked, self._checked_at = checked, now
+        searching = (
+            running
+            and state == "downloading"
+            and now - self._checked_at < SEARCH_AFTER_SECONDS
+            and now - self._bytes_at >= SEARCH_AFTER_SECONDS
+        )
+        if searching != self._searching:
+            self._searching = searching
+            if searching:
+                self.status_label.setText(UI.STATUS.format(state=strings.STATUS_SEARCHING))
+            elif running:
+                self.status_label.setText(UI.STATUS.format(state=state_label(state)))
+
         remaining = max(0, total_bytes - done_bytes)
         eta = format_eta(remaining / speed) if speed > 0 and remaining else UI.DASH
-        showing = running and state != "counting"
+        showing = running and state != "counting" and not searching
         self.speed_label.setText(
             UI.PROGRESS_SPEED.format(speed=format_size(speed) if speed else UI.DASH) if showing else ""
         )
         self.eta_label.setText(UI.PROGRESS_ETA.format(eta=eta) if showing else "")
         name = current if showing and current else ""
-        self.current_label.setText(name.replace("\\", "/").rsplit("/", 1)[-1])
+        if searching:
+            self.current_label.setText(UI.PROGRESS_CHECKED.format(count=checked))
+        else:
+            self.current_label.setText(name.replace("\\", "/").rsplit("/", 1)[-1])
         self.current_label.setToolTip(UI.PROGRESS_CURRENT.format(name=name) if name else "")
         if total_bytes:
             fraction = min(1.0, done_bytes / total_bytes)
@@ -664,9 +696,9 @@ class MainWindow(QMainWindow):
             fraction = 1.0 if total_files and done_files >= total_files else 0.0
         self.percent_label.setText(f"{int(fraction * 100)}%")
         theme.set_role(self.percent_label, "" if running or fraction else "muted")
-        if state == "counting":
+        if state == "counting" or (searching and not done_bytes):
             self._bar_animation.stop()
-            self.progress_bar.setRange(0, 0)  # busy indicator while counting
+            self.progress_bar.setRange(0, 0)  # busy indicator: counting, or nothing fetched yet
         else:
             self.progress_bar.setRange(0, 1000)
             self._move_bar(int(fraction * 1000))

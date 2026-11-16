@@ -595,6 +595,8 @@ class SyncEngine:
                 yield asset
                 if not left:
                     return
+            else:
+                self._emit("checked")  # the window shows that the job is alive
 
     def _fetch_pass(self, period: Period, assets, stale: dict[str, list[_Stale]] | None) -> None:
         """Download the assets with a bounded number of them in flight."""

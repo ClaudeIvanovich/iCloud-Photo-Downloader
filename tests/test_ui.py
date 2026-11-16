@@ -402,6 +402,36 @@ def test_only_the_buttons_that_can_act_are_on_screen(window, controller, fake, t
     assert not window.start_button.isHidden() and window.pause_button.isHidden()
 
 
+def test_window_says_so_while_the_job_runs_past_files_it_already_has(window, controller, monkeypatch) -> None:
+    from ipd_app.ui import main_window
+
+    clock = [1000.0]
+    monkeypatch.setattr(main_window.time, "monotonic", lambda: clock[0])
+    monkeypatch.setattr(controller, "_job_task", object())
+    monkeypatch.setattr(controller, "_job_state", "downloading")
+    window._on_job_state("downloading")
+    for _ in range(40):
+        controller.progress.file_event("2023/05 May/Full size/IMG_1.JPG", "present")
+    window._tick()
+    assert strings.STATUS_SEARCHING in window.status_label.text()
+    assert window.current_label.full_text() == UI.PROGRESS_CHECKED.format(count=40)
+    assert window.speed_label.text() == "" and window.progress_bar.maximum() == 0
+
+    # a download begins: the usual picture is back at once
+    controller.progress.file_event("2023/04 April/Full size/IMG_2.JPG", "started")
+    controller.progress.add_bytes(5000)
+    clock[0] += 0.5
+    window._tick()
+    assert strings.STATUS_DOWNLOADING in window.status_label.text()
+    assert window.current_label.full_text() == "IMG_2.JPG" and window.progress_bar.maximum() == 1000
+
+    # an already present file passing by during a download changes nothing
+    controller.progress.file_event("2023/05 May/Full size/IMG_3.JPG", "present")
+    clock[0] += 0.5
+    window._tick()
+    assert strings.STATUS_DOWNLOADING in window.status_label.text()
+
+
 def test_long_file_name_loses_its_middle(qapp) -> None:
     from ipd_app.ui.main_window import ElidedLabel
 

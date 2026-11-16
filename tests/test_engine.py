@@ -256,6 +256,15 @@ def test_stale_link_is_replaced_by_a_fresh_one_in_the_same_job(client, make_engi
     ]
 
 
+def test_going_back_for_a_fresh_link_reports_the_files_it_passes(client, make_engine) -> None:
+    client.add("GOOD.JPG", b"ok", taken=utc(2023, 5, 1))
+    late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 2))
+    client.fail(late, LinkExpiredError("Gone (410)"))
+    engine = make_engine()
+    assert engine.run(YEAR_2023).downloaded == 2
+    assert [name for name, _ in engine.events].count("checked") == 1  # GOOD, on the way to LATE
+
+
 def test_link_that_stays_stale_ends_as_an_error(client, make_engine, root) -> None:
     late = client.add("LATE.JPG", b"0123456789", taken=utc(2023, 5, 1))
     client.fail(late, *[LinkExpiredError("Gone (410)")] * 5)
