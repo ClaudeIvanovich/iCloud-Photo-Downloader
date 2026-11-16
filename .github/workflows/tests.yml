@@ -21,3 +21,24 @@ jobs:
         env:
           QT_QPA_PLATFORM: offscreen
         run: python -m pytest -q
+
+  macos:
+    runs-on: macos-14
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+      - name: Install dependencies
+        run: python -m pip install --disable-pip-version-check -r requirements-dev.txt -e .
+      - name: Run tests
+        env:
+          QT_QPA_PLATFORM: offscreen
+        run: python -m pytest -q
+      - name: Compile SwiftUI for Apple Silicon
+        run: swiftc -swift-version 5 -target arm64-apple-macosx13.0 -parse-as-library macos/Sources/App.swift -o "$RUNNER_TEMP/ipd-swift"
+      - name: Generate and validate macOS icon
+        run: |
+          python packaging/macos/make_icon.py "$RUNNER_TEMP/AppIcon.icns"
+          iconutil -c iconset -o "$RUNNER_TEMP/AppIcon.iconset" "$RUNNER_TEMP/AppIcon.icns"
+          test -s "$RUNNER_TEMP/AppIcon.iconset/icon_512x512@2x.png"
