@@ -16,6 +16,7 @@ ERR_SECURITY_KEY = "不支持使用硬件安全密钥登录。"
 ERR_NETWORK = "无法连接 iCloud 服务器，请检查网络。"
 ERR_UNAVAILABLE = "iCloud 暂时不可用或限制了请求，请稍后重试。"
 ERR_LIBRARY_NOT_READY = "iCloud 图库尚未就绪（正在建立索引），请稍后重试。"
+ERR_LINK_EXPIRED = "下载链接在轮到该文件之前已过期，请重新开始任务。"
 ERR_ICLOUD_GENERIC = "iCloud 错误：{detail}"
 
 ERR_NO_ROOT = "尚未选择下载文件夹，请在账户设置中选择。"

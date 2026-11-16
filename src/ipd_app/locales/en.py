@@ -22,6 +22,7 @@ ERR_SECURITY_KEY = "Signing in with hardware security keys is not supported."
 ERR_NETWORK = "Cannot reach iCloud servers. Check your internet connection."
 ERR_UNAVAILABLE = "iCloud is temporarily unavailable or is limiting requests. Try again later."
 ERR_LIBRARY_NOT_READY = "The iCloud library is not ready yet (indexing in progress). Try again later."
+ERR_LINK_EXPIRED = "The download link expired before the file's turn came. Run the job again."
 ERR_ICLOUD_GENERIC = "iCloud error: {detail}"
 
 ERR_NO_ROOT = "No download folder is selected. Choose one in the account settings."

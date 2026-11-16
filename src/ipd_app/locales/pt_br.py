@@ -22,6 +22,7 @@ ERR_SECURITY_KEY = "O início de sessão com chaves de segurança físicas não 
 ERR_NETWORK = "Sem conexão com os servidores do iCloud. Verifique sua internet."
 ERR_UNAVAILABLE = "O iCloud está temporariamente indisponível ou limitando as solicitações. Tente mais tarde."
 ERR_LIBRARY_NOT_READY = "A fototeca do iCloud ainda não está pronta (indexação em andamento). Tente mais tarde."
+ERR_LINK_EXPIRED = "O link de download expirou antes de chegar a vez do arquivo. Inicie a tarefa de novo."
 ERR_ICLOUD_GENERIC = "Erro do iCloud: {detail}"
 
 ERR_NO_ROOT = "A pasta de download não foi escolhida. Escolha-a nos ajustes da conta."

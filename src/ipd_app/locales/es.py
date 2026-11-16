@@ -22,6 +22,7 @@ ERR_SECURITY_KEY = "No se admite el inicio de sesión con llaves de seguridad f�
 ERR_NETWORK = "No hay conexión con los servidores de iCloud. Comprueba tu conexión a internet."
 ERR_UNAVAILABLE = "iCloud no está disponible temporalmente o está limitando las solicitudes. Inténtalo más tarde."
 ERR_LIBRARY_NOT_READY = "La fototeca de iCloud aún no está lista (se está indexando). Inténtalo más tarde."
+ERR_LINK_EXPIRED = "El enlace de descarga caducó antes de que llegara el turno del archivo. Vuelve a iniciar la tarea."
 ERR_ICLOUD_GENERIC = "Error de iCloud: {detail}"
 
 ERR_NO_ROOT = "No se ha elegido la carpeta de descarga. Elígela en los ajustes de la cuenta."

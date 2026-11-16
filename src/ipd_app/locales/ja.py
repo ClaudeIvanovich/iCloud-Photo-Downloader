@@ -22,6 +22,7 @@ ERR_SECURITY_KEY = "ハードウェアセキュリティキーでのサインイ
 ERR_NETWORK = "iCloud サーバーに接続できません。インターネット接続を確認してください。"
 ERR_UNAVAILABLE = "iCloud が一時的に利用できないか、リクエストを制限しています。しばらくしてからもう一度お試しください。"
 ERR_LIBRARY_NOT_READY = "iCloud のライブラリはまだ準備中です（インデックス作成中）。しばらくしてからもう一度お試しください。"
+ERR_LINK_EXPIRED = "ファイルの順番が来る前にダウンロードリンクの期限が切れました。もう一度ジョブを開始してください。"
 ERR_ICLOUD_GENERIC = "iCloud エラー：{detail}"
 
 ERR_NO_ROOT = "ダウンロード先のフォルダが選択されていません。アカウントの設定で選択してください。"
