@@ -83,7 +83,6 @@ class UI:
     DATE_FROM = "De"
     DATE_TO = "até"
     ALL_TIME = "Todo o período"
-    PRESET_THIS_YEAR = "Este ano"
     PRESET_LAST_YEAR = "Ano passado"
     PRESET_30_DAYS = "Últimos 30 dias"
     BTN_START = "Iniciar tarefa"

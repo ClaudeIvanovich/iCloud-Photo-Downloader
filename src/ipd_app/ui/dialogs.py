@@ -99,9 +99,10 @@ class AccountsDialog(QDialog):
         super().__init__(parent)
         self.controller = controller
         self.setWindowTitle(UI.ACCOUNTS_TITLE)
-        self.setMinimumSize(520, 300)
+        self.setMinimumSize(560, 320)
         self.list = QListWidget()
         self.add_button = QPushButton(UI.BTN_ADD)
+        self.add_button.setProperty("primary", True)
         self.switch_button = QPushButton(UI.BTN_SWITCH)
         self.logout_button = QPushButton(UI.BTN_LOGOUT)
         self.remove_button = QPushButton(UI.BTN_REMOVE)
@@ -200,7 +201,7 @@ class SettingsDialog(QDialog):
         folder_layout.addLayout(row)
         folder_layout.addWidget(self._note(UI.ROOT_NOTE))
         self.shared_warning = self._note("")
-        self.shared_warning.setStyleSheet("color: #B26A00;")
+        self.shared_warning.setProperty("role", "warning")
         folder_layout.addWidget(self.shared_warning)
         folder_layout.addStretch(1)
         tabs.addTab(folder, UI.TAB_FOLDER)
@@ -246,6 +247,7 @@ class SettingsDialog(QDialog):
         self.albums_status = self._note("")
         self._fill_albums(account.albums or [], set(account.albums or []))
         media_row = QHBoxLayout()
+        media_row.setSpacing(24)
         media_row.addWidget(self.photos)
         media_row.addWidget(self.videos)
         media_row.addStretch(1)
@@ -273,11 +275,15 @@ class SettingsDialog(QDialog):
         self.concurrency = QSpinBox()
         self.concurrency.setRange(1, 8)
         self.concurrency.setValue(account.concurrency)
+        self.concurrency.setMaximumWidth(140)
         self.min_free = QDoubleSpinBox()
         self.min_free.setRange(0.5, 1000.0)
         self.min_free.setDecimals(1)
         self.min_free.setSuffix(UI.GB)
         self.min_free.setValue(account.min_free_gb)
+        self.min_free.setMaximumWidth(140)
+        for box in (self.concurrency, self.min_free):
+            box.lineEdit().setTextMargins(8, 0, 0, 0)  # the style sheet padding does not reach the inner field
         self.restore_deleted = QCheckBox(UI.RESTORE_DELETED)
         self.restore_deleted.setChecked(account.restore_deleted)
         download = QWidget()
@@ -289,6 +295,7 @@ class SettingsDialog(QDialog):
 
         self.save_button = QPushButton(UI.BTN_SAVE)
         self.save_button.setDefault(True)
+        self.save_button.setProperty("primary", True)
         cancel = QPushButton(UI.BTN_CANCEL)
         self.locked_note = self._note(UI.SETTINGS_LOCKED)
         self.locked_note.setVisible(controller.is_job_running)
@@ -309,7 +316,7 @@ class SettingsDialog(QDialog):
     def _note(text: str) -> QLabel:
         label = QLabel(text)
         label.setWordWrap(True)
-        label.setStyleSheet("color: palette(mid);")
+        label.setProperty("role", "muted")
         return label
 
     def _choose_root(self) -> None:

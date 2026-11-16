@@ -74,7 +74,6 @@ class UI:
     DATE_FROM = "从"
     DATE_TO = "到"
     ALL_TIME = "全部时间"
-    PRESET_THIS_YEAR = "今年"
     PRESET_LAST_YEAR = "去年"
     PRESET_30_DAYS = "最近 30 天"
     BTN_START = "开始任务"

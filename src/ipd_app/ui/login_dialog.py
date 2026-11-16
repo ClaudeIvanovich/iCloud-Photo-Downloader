@@ -18,6 +18,7 @@ from PySide6.QtWidgets import (
 
 from ..icloud_adapter import LoginStatus, TrustedPhone
 from ..strings import UI
+from . import theme
 from .controller import Controller, LoginOutcome
 
 
@@ -28,7 +29,7 @@ class LoginDialog(QDialog):
         self._sms_phone: TrustedPhone | None = None
         self._phones: tuple[TrustedPhone, ...] = ()
         self.setWindowTitle(UI.LOGIN_TITLE)
-        self.setMinimumWidth(440)
+        self.setMinimumWidth(520)
 
         # page 1: credentials
         self.apple_id = QLineEdit(apple_id)
@@ -37,13 +38,14 @@ class LoginDialog(QDialog):
         self.password.setEchoMode(QLineEdit.EchoMode.Password)
         self.login_button = QPushButton(UI.BTN_LOGIN)
         self.login_button.setDefault(True)
+        self.login_button.setProperty("primary", True)
         cancel = QPushButton(UI.BTN_CANCEL)
         form = QFormLayout()
         form.addRow(UI.APPLE_ID, self.apple_id)
         form.addRow(UI.PASSWORD, self.password)
         note = QLabel(UI.REQUIREMENTS_NOTE)
         note.setWordWrap(True)
-        note.setStyleSheet("color: palette(mid);")
+        note.setProperty("role", "muted")
         buttons = QHBoxLayout()
         buttons.addStretch(1)
         buttons.addWidget(self.login_button)
@@ -62,12 +64,14 @@ class LoginDialog(QDialog):
         self.code.setMaxLength(6)
         self.code.setValidator(QRegularExpressionValidator(QRegularExpression(r"\d{0,6}")))
         self.code.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.code.setObjectName("code")  # the size comes from the style sheet
         font = self.code.font()
-        font.setPointSize(font.pointSize() + 6)
         font.setLetterSpacing(font.SpacingType.AbsoluteSpacing, 6)
         self.code.setFont(font)
         self.confirm_button = QPushButton(UI.BTN_CONFIRM)
+        self.confirm_button.setProperty("primary", True)
         self.sms_button = QPushButton()
+        self.sms_button.setProperty("link", True)
         code_cancel = QPushButton(UI.BTN_CANCEL)
         code_form = QFormLayout()
         code_form.addRow(UI.CODE_FIELD, self.code)
@@ -126,7 +130,7 @@ class LoginDialog(QDialog):
 
     def _show_message(self, text: str, error: bool) -> None:
         self.message.setText(text)
-        self.message.setStyleSheet("color: #C8443C;" if error else "")
+        theme.set_role(self.message, "danger" if error else "muted")
 
     def _login(self) -> None:
         if not self.apple_id.text().strip() or not self.password.text():

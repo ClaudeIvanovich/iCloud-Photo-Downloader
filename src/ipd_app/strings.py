@@ -97,7 +97,6 @@ class UI:
     DATE_FROM = "С"
     DATE_TO = "по"
     ALL_TIME = "Весь период"
-    PRESET_THIS_YEAR = "Этот год"
     PRESET_LAST_YEAR = "Прошлый год"
     PRESET_30_DAYS = "Последние 30 дней"
     BTN_START = "Запустить задание"
@@ -256,8 +255,9 @@ LANGUAGES = {
     "es": "Español",
     "pt_BR": "Português (Brasil)",
     "zh_CN": "简体中文",
+    "ja": "日本語",
 }
-_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN"}
+_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN", "ja": "ja"}
 
 
 def _texts(holder: object) -> dict[str, object]:
@@ -278,9 +278,9 @@ current_language = DEFAULT_LANGUAGE
 def _translation(code: str) -> _ModuleType | None:
     if code == DEFAULT_LANGUAGE:
         return None
-    from .locales import en, es, pt_br, zh_cn
+    from .locales import en, es, ja, pt_br, zh_cn
 
-    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn}[code]
+    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja}[code]
 
 
 def set_language(code: str) -> str:

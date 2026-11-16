@@ -83,7 +83,6 @@ class UI:
     DATE_FROM = "From"
     DATE_TO = "to"
     ALL_TIME = "All time"
-    PRESET_THIS_YEAR = "This year"
     PRESET_LAST_YEAR = "Last year"
     PRESET_30_DAYS = "Last 30 days"
     BTN_START = "Start job"

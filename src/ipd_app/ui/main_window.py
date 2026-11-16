@@ -6,15 +6,14 @@ import time
 from collections import deque
 from datetime import date, timedelta
 
-from PySide6.QtCore import QDate, Qt, QTimer
+from PySide6.QtCore import QDate, QEasingCurve, QPropertyAnimation, Qt, QTimer
 from PySide6.QtGui import QAction, QCloseEvent
 from PySide6.QtWidgets import (
+    QAbstractButton,
     QApplication,
-    QCheckBox,
     QComboBox,
     QDateEdit,
-    QGridLayout,
-    QGroupBox,
+    QFrame,
     QHBoxLayout,
     QLabel,
     QMainWindow,
@@ -22,7 +21,9 @@ from PySide6.QtWidgets import (
     QMessageBox,
     QProgressBar,
     QPushButton,
+    QSizePolicy,
     QSystemTrayIcon,
+    QToolButton,
     QVBoxLayout,
     QWidget,
 )
@@ -30,7 +31,7 @@ from PySide6.QtWidgets import (
 from .. import strings
 from ..strings import UI, format_size
 from ..sync_engine import Period, Plan, Report
-from . import icons
+from . import icons, theme
 from .controller import (
     SESSION_CHECKING,
     SESSION_ERROR,
@@ -62,6 +63,8 @@ STATE_TEXT_NAMES = {
 def state_label(state: str) -> str:
     name = STATE_TEXT_NAMES.get(state)
     return getattr(strings, name) if name else state
+
+
 SPEED_WINDOW_SECONDS = 5.0
 
 
@@ -76,6 +79,35 @@ def format_eta(seconds: float) -> str:
 
 def to_qdate(value: date) -> QDate:
     return QDate(value.year, value.month, value.day)
+
+
+class ElidedLabel(QLabel):
+    """One centred line; a text that does not fit loses its middle, not its ends,
+    so both the start of a file name and its extension stay readable."""
+
+    def __init__(self, text: str = "", parent: QWidget | None = None) -> None:
+        super().__init__(parent)
+        self._full = ""
+        self.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.setMinimumWidth(60)
+        self.setSizePolicy(QSizePolicy.Policy.Ignored, QSizePolicy.Policy.Preferred)
+        self.setText(text)
+
+    def setText(self, text: str) -> None:  # noqa: N802 - Qt name
+        self._full = text
+        self._fit()
+
+    def full_text(self) -> str:
+        return self._full
+
+    def resizeEvent(self, event) -> None:  # noqa: N802 - Qt name
+        super().resizeEvent(event)
+        self._fit()
+
+    def _fit(self) -> None:
+        shown = self.fontMetrics().elidedText(self._full, Qt.TextElideMode.ElideMiddle, max(self.width() - 4, 0))
+        if shown != self.text():
+            super().setText(shown)
 
 
 class Tray(QSystemTrayIcon):
@@ -142,102 +174,134 @@ class MainWindow(QMainWindow):
         self._samples: deque[tuple[float, int]] = deque()
         self.setWindowTitle(UI.APP_TITLE)
         self.setWindowIcon(icons.icon("idle"))
-        self.setMinimumWidth(640)
+        self.setMinimumWidth(680)
 
-        # --- account row
+        # --- header: who is signed in, and the rarely used windows as icons
         self.account_combo = QComboBox()
-        self.account_combo.setMinimumWidth(240)
+        self.account_combo.setProperty("flat", True)
+        self.account_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.account_combo.setToolTip(UI.ACCOUNT.rstrip(":： "))
         self.session_label = QLabel(UI.SESSION_UNKNOWN)
         self.sign_in_button = QPushButton(UI.BTN_SIGN_IN)
-        self.accounts_button = QPushButton(UI.BTN_ACCOUNTS)
-        self.settings_button = QPushButton(UI.BTN_SETTINGS)
-        self.log_button = QPushButton(UI.BTN_LOG)
-        top = QHBoxLayout()
-        top.addWidget(QLabel(UI.ACCOUNT))
-        top.addWidget(self.account_combo, 1)
-        top.addWidget(self.session_label)
-        top.addWidget(self.sign_in_button)
-        tools = QHBoxLayout()
-        tools.addWidget(self.accounts_button)
-        tools.addWidget(self.settings_button)
-        tools.addWidget(self.log_button)
-        tools.addStretch(1)
+        self.sign_in_button.setProperty("primary", True)
+        self.accounts_button = self._tool_button(theme.GLYPH_ACCOUNTS, UI.BTN_ACCOUNTS)
+        self.settings_button = self._tool_button(theme.GLYPH_SETTINGS, UI.BTN_SETTINGS)
+        self.log_button = self._tool_button(theme.GLYPH_LOG, UI.BTN_LOG)
         # Every language under its own name, so the list is readable in any of them.
         self.language_combo = QComboBox()
         self.language_combo.setObjectName("language_combo")
+        self.language_combo.setProperty("quiet", True)
+        self.language_combo.setSizeAdjustPolicy(QComboBox.SizeAdjustPolicy.AdjustToContents)
+        self.language_combo.setToolTip(UI.LANGUAGE.rstrip(":： "))
         self.language_combo.addItem(UI.LANGUAGE_AUTO, strings.AUTO)
         for code, name in strings.LANGUAGES.items():
             self.language_combo.addItem(name, code)
         saved = self.language_combo.findData(controller.config.language)
         self.language_combo.setCurrentIndex(max(saved, 0))
         self.language_combo.activated.connect(self._language_chosen)
-        tools.addWidget(QLabel(UI.LANGUAGE))
-        tools.addWidget(self.language_combo)
+        header = QHBoxLayout()
+        header.setSpacing(6)
+        header.addWidget(self.account_combo)
+        header.addWidget(self.session_label)
+        header.addWidget(self.sign_in_button)
+        header.addStretch(1)
+        header.addWidget(self.language_combo)
+        header.addWidget(self.accounts_button)
+        header.addWidget(self.settings_button)
+        header.addWidget(self.log_button)
 
-        # --- job
+        # --- period: the dates are always in sight, the usual ranges are one click
         today = date.today()
         self.date_from = QDateEdit(to_qdate(date(today.year, 1, 1)))
         self.date_to = QDateEdit(to_qdate(today))
         for edit in (self.date_from, self.date_to):
             edit.setCalendarPopup(True)
             edit.setDisplayFormat(UI.DATE_DISPLAY)
-        self.all_time = QCheckBox(UI.ALL_TIME)
-        self.preset_this_year = QPushButton(UI.PRESET_THIS_YEAR)
+            edit.setMinimumWidth(128)
         self.preset_last_year = QPushButton(UI.PRESET_LAST_YEAR)
         self.preset_30_days = QPushButton(UI.PRESET_30_DAYS)
+        self.all_time = QPushButton(UI.ALL_TIME)
+        for chip in (self.preset_last_year, self.preset_30_days, self.all_time):
+            chip.setProperty("chip", True)
+            chip.setCheckable(True)
+            chip.setCursor(Qt.CursorShape.PointingHandCursor)
+        dates = QHBoxLayout()
+        dates.setSpacing(8)
+        dates.addWidget(self._caption(UI.DATE_FROM))
+        dates.addWidget(self.date_from)
+        dates.addWidget(self._caption(UI.DATE_TO))
+        dates.addWidget(self.date_to)
+        dates.addStretch(1)
+        for chip in (self.preset_last_year, self.preset_30_days, self.all_time):
+            dates.addWidget(chip)
+        period_card, period_layout, _ = self._card(UI.GROUP_JOB)
+        period_layout.addLayout(dates)
+
+        # --- progress: one big number, one bar, one main button
+        self.status_label = self._caption(UI.STATUS.format(state=strings.STATUS_IDLE))
+        self.percent_label = QLabel("0%")
+        self.percent_label.setObjectName("percent")
+        self.percent_label.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.progress_bar = QProgressBar()
+        self.progress_bar.setRange(0, 1000)
+        self.progress_bar.setTextVisible(False)
+        self._bar_animation = QPropertyAnimation(self.progress_bar, b"value", self)
+        self._bar_animation.setDuration(350)
+        self._bar_animation.setEasingCurve(QEasingCurve.Type.OutCubic)
+        self._animate = theme.animations_enabled()
+        self.files_label = self._caption("")
+        self.bytes_label = self._caption("")
+        self.speed_label = self._caption("")
+        self.eta_label = self._caption("")
+        self.eta_label.setAlignment(Qt.AlignmentFlag.AlignRight | Qt.AlignmentFlag.AlignVCenter)
+        self.current_label = ElidedLabel()
+        self.current_label.setProperty("role", "muted")
+        self.plan_label = self._caption("")
+        self.plan_label.setWordWrap(True)
+        self._reserve_lines(self.plan_label, 2)
+        self.plan_label.setAlignment(Qt.AlignmentFlag.AlignHCenter | Qt.AlignmentFlag.AlignTop)
         self.hint = QLabel()
-        self.hint.setStyleSheet("color: #B26A00;")
+        self.hint.setProperty("role", "warning")
+        self.hint.setAlignment(Qt.AlignmentFlag.AlignCenter)
+        self.hint.setWordWrap(True)
         self.start_button = QPushButton(UI.BTN_START)
         self.pause_button = QPushButton(UI.BTN_PAUSE)
         self.stop_button = QPushButton(UI.BTN_STOP)
-        dates = QHBoxLayout()
-        dates.addWidget(QLabel(UI.DATE_FROM))
-        dates.addWidget(self.date_from)
-        dates.addWidget(QLabel(UI.DATE_TO))
-        dates.addWidget(self.date_to)
-        dates.addSpacing(12)
-        dates.addWidget(self.all_time)
-        dates.addStretch(1)
-        presets = QHBoxLayout()
-        for button in (self.preset_this_year, self.preset_last_year, self.preset_30_days):
-            presets.addWidget(button)
-        presets.addStretch(1)
+        for button in (self.start_button, self.pause_button, self.stop_button):
+            button.setProperty("big", True)
+        self.start_button.setProperty("primary", True)
+        self.pause_button.setProperty("primary", True)
+        counts = QHBoxLayout()
+        counts.setSpacing(6)
+        counts.addStretch(1)
+        counts.addWidget(self.files_label)
+        counts.addWidget(self._caption("·"))
+        counts.addWidget(self.bytes_label)
+        counts.addStretch(1)
+        # speed on the left, time on the right, the file in the middle takes what is left
+        rates = QHBoxLayout()
+        rates.setSpacing(12)
+        rates.addWidget(self.speed_label, 1)
+        rates.addWidget(self.current_label, 2)
+        rates.addWidget(self.eta_label, 1)
         actions = QHBoxLayout()
+        actions.setSpacing(10)
+        actions.addStretch(1)
         actions.addWidget(self.start_button)
         actions.addWidget(self.pause_button)
         actions.addWidget(self.stop_button)
-        actions.addWidget(self.hint, 1)
-        job_box = QGroupBox(UI.GROUP_JOB)
-        job_layout = QVBoxLayout(job_box)
-        job_layout.addLayout(dates)
-        job_layout.addLayout(presets)
-        job_layout.addLayout(actions)
-
-        # --- progress
-        self.status_label = QLabel(UI.STATUS.format(state=strings.STATUS_IDLE))
-        self.plan_label = QLabel()
-        self.plan_label.setWordWrap(True)
-        self._reserve_lines(self.plan_label, 3)
-        self.progress_bar = QProgressBar()
-        self.progress_bar.setRange(0, 1000)
-        self.files_label = QLabel()
-        self.bytes_label = QLabel()
-        self.speed_label = QLabel()
-        self.eta_label = QLabel()
-        self.current_label = QLabel()
-        self.current_label.setTextInteractionFlags(Qt.TextInteractionFlag.TextSelectableByMouse)
-        grid = QGridLayout()
-        grid.addWidget(self.files_label, 0, 0)
-        grid.addWidget(self.bytes_label, 0, 1)
-        grid.addWidget(self.speed_label, 1, 0)
-        grid.addWidget(self.eta_label, 1, 1)
-        progress_box = QGroupBox(UI.GROUP_PROGRESS)
-        progress_layout = QVBoxLayout(progress_box)
-        progress_layout.addWidget(self.status_label)
-        progress_layout.addWidget(self.plan_label)
+        actions.addStretch(1)
+        progress_card, progress_layout, progress_head = self._card(UI.GROUP_PROGRESS)
+        progress_head.addWidget(self.status_label)
+        progress_layout.addWidget(self.percent_label)
+        progress_layout.addLayout(counts)
+        progress_layout.addSpacing(6)
         progress_layout.addWidget(self.progress_bar)
-        progress_layout.addLayout(grid)
-        progress_layout.addWidget(self.current_label)
+        progress_layout.addLayout(rates)
+        progress_layout.addSpacing(8)
+        progress_layout.addLayout(actions)
+        progress_layout.addWidget(self.hint)
+        progress_layout.addWidget(self.plan_label)
 
         # --- last run
         self.last_label = QLabel(UI.LAST_NONE)
@@ -245,22 +309,25 @@ class MainWindow(QMainWindow):
         self._reserve_lines(self.last_label, 3)
         self.errors_button = QPushButton(UI.BTN_SHOW_ERRORS)
         self.folder_button = QPushButton(UI.BTN_OPEN_FOLDER)
-        last_buttons = QHBoxLayout()
-        last_buttons.addWidget(self.errors_button)
+        last_buttons = QVBoxLayout()
         last_buttons.addWidget(self.folder_button)
+        last_buttons.addWidget(self.errors_button)
         last_buttons.addStretch(1)
-        last_box = QGroupBox(UI.GROUP_LAST)
-        last_layout = QVBoxLayout(last_box)
-        last_layout.addWidget(self.last_label)
-        last_layout.addLayout(last_buttons)
+        last_card, last_layout, _ = self._card(UI.GROUP_LAST)
+        last_row = QHBoxLayout()
+        last_row.setSpacing(12)
+        last_row.addWidget(self.last_label, 1)
+        last_row.addLayout(last_buttons)
+        last_layout.addLayout(last_row)
 
         central = QWidget()
         layout = QVBoxLayout(central)
-        layout.addLayout(top)
-        layout.addLayout(tools)
-        layout.addWidget(job_box)
-        layout.addWidget(progress_box)
-        layout.addWidget(last_box)
+        layout.setContentsMargins(16, 12, 16, 16)
+        layout.setSpacing(12)
+        layout.addLayout(header)
+        layout.addWidget(period_card)
+        layout.addWidget(progress_card)
+        layout.addWidget(last_card)
         layout.addStretch(1)
         self.setCentralWidget(central)
 
@@ -279,7 +346,6 @@ class MainWindow(QMainWindow):
         self.all_time.toggled.connect(self._update_controls)
         self.date_from.dateChanged.connect(self._update_controls)
         self.date_to.dateChanged.connect(self._update_controls)
-        self.preset_this_year.clicked.connect(lambda: self.set_period(date(date.today().year, 1, 1), date.today()))
         self.preset_last_year.clicked.connect(
             lambda: self.set_period(date(date.today().year - 1, 1, 1), date(date.today().year - 1, 12, 31))
         )
@@ -305,6 +371,44 @@ class MainWindow(QMainWindow):
         self._refresh_accounts()
         self._on_session(*controller.session_state())
         self._tick()
+
+    @staticmethod
+    def _card(title: str) -> tuple[QFrame, QVBoxLayout, QHBoxLayout]:
+        """A rounded panel with a small heading; the style sheet draws it.
+
+        Returns the panel, its layout and the heading row, where a note can sit on the right."""
+        card = QFrame()
+        card.setProperty("card", True)
+        layout = QVBoxLayout(card)
+        layout.setContentsMargins(16, 12, 16, 14)
+        layout.setSpacing(8)
+        heading = QLabel(title)
+        heading.setProperty("role", "title")
+        head = QHBoxLayout()
+        head.addWidget(heading)
+        head.addStretch(1)
+        layout.addLayout(head)
+        return card, layout, head
+
+    @staticmethod
+    def _caption(text: str) -> QLabel:
+        label = QLabel(text)
+        label.setProperty("role", "muted")
+        return label
+
+    @staticmethod
+    def _tool_button(glyph: str, name: str) -> QAbstractButton:
+        """An icon for a window that is opened rarely; its name is in the tooltip."""
+        plain = name.rstrip("….")
+        if not theme.has_icon_font():
+            return QPushButton(name)
+        button = QToolButton()
+        button.setText(glyph)
+        button.setFont(theme.icon_font(16))
+        button.setToolTip(plain)
+        button.setAccessibleName(plain)
+        button.setCursor(Qt.CursorShape.PointingHandCursor)
+        return button
 
     @staticmethod
     def _reserve_lines(label: QLabel, lines: int) -> None:
@@ -369,8 +473,8 @@ class MainWindow(QMainWindow):
             SESSION_ERROR: UI.SESSION_ERROR.format(message=message),
         }.get(state, UI.SESSION_UNKNOWN)
         self.session_label.setText(text)
-        color = {SESSION_OK: "#2E9E5B", SESSION_EXPIRED: "#C8443C", SESSION_ERROR: "#C8443C"}.get(state, "")
-        self.session_label.setStyleSheet(f"color: {color};" if color else "")
+        role = {SESSION_OK: "success", SESSION_EXPIRED: "danger", SESSION_ERROR: "danger"}.get(state, "muted")
+        theme.set_role(self.session_label, role)
         self._update_controls()
         if state == SESSION_OK:
             QTimer.singleShot(0, self._offer_resume)
@@ -443,13 +547,18 @@ class MainWindow(QMainWindow):
         if not running:
             hint = blocked or ("" if period_ok else UI.HINT_BAD_PERIOD)
         self.hint.setText(hint)
+        self.hint.setVisible(bool(hint))
         self.start_button.setEnabled(not running and not blocked and period_ok)
+        self.start_button.setVisible(not running)
+        self.pause_button.setVisible(running)
+        self.stop_button.setVisible(running)
+        self._mark_presets()
         self.pause_button.setEnabled(running)
         self.pause_button.setText(UI.BTN_RESUME if state == "paused" else UI.BTN_PAUSE)
         self.stop_button.setEnabled(running)
         for widget in (self.date_from, self.date_to):
             widget.setEnabled(not running and not self.all_time.isChecked())
-        for widget in (self.all_time, self.preset_this_year, self.preset_last_year, self.preset_30_days):
+        for widget in (self.all_time, self.preset_last_year, self.preset_30_days):
             widget.setEnabled(not running)
         self.account_combo.setEnabled(not running and bool(self.controller.accounts()))
         session = self.controller.session_state()[0]
@@ -457,6 +566,19 @@ class MainWindow(QMainWindow):
         self.settings_button.setEnabled(self.controller.active() is not None)
         self.folder_button.setEnabled(self.controller.root_dir() is not None)
         self.errors_button.setEnabled(bool(self.controller.problems()))
+
+    def _mark_presets(self) -> None:
+        """Light up the chip whose range is the one in the date fields."""
+        today = date.today()
+        shown = None if self.all_time.isChecked() else self.period()
+        ranges = {
+            self.preset_last_year: Period(date(today.year - 1, 1, 1), date(today.year - 1, 12, 31)),
+            self.preset_30_days: Period(today - timedelta(days=30), today),
+        }
+        for chip, period in ranges.items():
+            chip.blockSignals(True)
+            chip.setChecked(shown == period)
+            chip.blockSignals(False)
 
     def _on_job_state(self, state: str) -> None:
         self.status_label.setText(UI.STATUS.format(state=state_label(state)))
@@ -526,19 +648,45 @@ class MainWindow(QMainWindow):
         self.bytes_label.setText(
             UI.PROGRESS_BYTES.format(done=format_size(done_bytes), total=format_size(total_bytes))
         )
-        self.speed_label.setText(UI.PROGRESS_SPEED.format(speed=format_size(speed) if speed else UI.DASH))
         remaining = max(0, total_bytes - done_bytes)
         eta = format_eta(remaining / speed) if speed > 0 and remaining else UI.DASH
-        self.eta_label.setText(UI.PROGRESS_ETA.format(eta=eta))
-        self.current_label.setText(UI.PROGRESS_CURRENT.format(name=current if running and current else UI.DASH))
+        showing = running and state != "counting"
+        self.speed_label.setText(
+            UI.PROGRESS_SPEED.format(speed=format_size(speed) if speed else UI.DASH) if showing else ""
+        )
+        self.eta_label.setText(UI.PROGRESS_ETA.format(eta=eta) if showing else "")
+        name = current if showing and current else ""
+        self.current_label.setText(name.replace("\\", "/").rsplit("/", 1)[-1])
+        self.current_label.setToolTip(UI.PROGRESS_CURRENT.format(name=name) if name else "")
+        if total_bytes:
+            fraction = min(1.0, done_bytes / total_bytes)
+        else:
+            fraction = 1.0 if total_files and done_files >= total_files else 0.0
+        self.percent_label.setText(f"{int(fraction * 100)}%")
+        theme.set_role(self.percent_label, "" if running or fraction else "muted")
         if state == "counting":
+            self._bar_animation.stop()
             self.progress_bar.setRange(0, 0)  # busy indicator while counting
         else:
             self.progress_bar.setRange(0, 1000)
-            fraction = min(1.0, done_bytes / total_bytes) if total_bytes else (1.0 if total_files and done_files >= total_files else 0.0)
-            self.progress_bar.setValue(int(fraction * 1000))
+            self._move_bar(int(fraction * 1000))
         if self.tray is not None:
             self.tray.reflect(state, running, done_files, total_files)
+
+    def _move_bar(self, target: int) -> None:
+        """Glide to the new value from wherever the bar is now; jump when it goes back."""
+        current = self.progress_bar.value()
+        if not self._animate or not self.isVisible() or target <= current:
+            self._bar_animation.stop()
+            self.progress_bar.setValue(target)
+            return
+        running = self._bar_animation.state() == QPropertyAnimation.State.Running
+        if running and self._bar_animation.endValue() == target:
+            return
+        self._bar_animation.stop()
+        self._bar_animation.setStartValue(current)
+        self._bar_animation.setEndValue(target)
+        self._bar_animation.start()
 
     # ------------------------------------------------------- window life
 
