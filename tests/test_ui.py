@@ -493,3 +493,84 @@ def test_second_instance_wakes_the_first(qapp) -> None:
 
 def test_eta_format() -> None:
     assert format_eta(42) == "42 с" and format_eta(125) == "2 мин 5 с" and format_eta(3725) == "1 ч 2 мин"
+
+
+# ---------------------------------------------------------------- languages
+
+def visible_texts(widget) -> list[str]:
+    """Every text a widget tree shows: labels, buttons, titles, tabs, list and table items."""
+    from PySide6.QtWidgets import QComboBox, QGroupBox, QTableWidget, QTabWidget, QWidget
+
+    found = [widget.windowTitle()]
+    for child in [widget, *widget.findChildren(QWidget)]:
+        if child.objectName() == "language_combo":
+            continue  # lists every language under its own name
+        for getter in ("text", "title", "toolTip", "placeholderText", "suffix"):
+            value = getattr(child, getter, None)
+            if callable(value):
+                try:
+                    found.append(str(value()))
+                except TypeError:
+                    pass
+        if isinstance(child, QGroupBox):
+            found.append(child.title())
+        if isinstance(child, QTabWidget):
+            found += [child.tabText(index) for index in range(child.count())]
+        if isinstance(child, QComboBox):
+            found += [child.itemText(index) for index in range(child.count())]
+        if isinstance(child, QTableWidget):
+            found += [child.horizontalHeaderItem(index).text() for index in range(child.columnCount())]
+            found += [
+                child.item(row, 1).text() for row in range(child.rowCount()) if child.item(row, 1) is not None
+            ]
+    return [text for text in found if text]
+
+
+@pytest.mark.parametrize("code", ["en", "es", "pt_BR", "zh_CN"])
+def test_no_russian_text_is_left_in_any_window(code, controller, fake, tmp_path, qapp) -> None:
+    import re
+
+    from ipd_app.ui.app import apply_language
+
+    assert apply_language(qapp, code) == code
+    try:
+        made = MainWindow(controller, use_tray=False)
+        root = tmp_path / "photos"
+        root.mkdir()
+        bad = fake.add("BAD.JPG", b"0123456789", taken=utc(2023, 5, 1))
+        fake.fail(bad, ICloudError("gone"))
+        fake.add("IMG_1.JPG", b"y" * 3000, taken=utc(2023, 6, 1))
+        ready(controller, root)
+        made.set_period(date(2023, 1, 1), date(2023, 12, 31))
+        made.start_button.click()
+        wait_for(lambda: not controller.is_job_running)
+        made._tick()
+        windows = [
+            made,
+            LoginDialog(controller, parent=made),
+            SettingsDialog(controller, made),
+            AccountsDialog(controller, made),
+            ProblemsDialog(controller.problems(), made),
+            LogDialog(made),
+        ]
+        texts = [text for window in windows for text in visible_texts(window)]
+        assert len(texts) > 80
+        russian = [text for text in texts if re.search("[А-Яа-яЁё]", text)]
+        assert not russian, russian
+        made.timer.stop()
+        made._quitting = True
+        made.close()
+    finally:
+        apply_language(qapp, "ru")
+
+
+def test_choosing_a_language_is_saved_for_the_next_start(window, controller, monkeypatch) -> None:
+    told = []
+    monkeypatch.setattr("ipd_app.ui.main_window.QMessageBox.information", lambda *args: told.append(args[-1]))
+    assert window.language_combo.currentData() == strings.AUTO
+    index = window.language_combo.findData("es")
+    window.language_combo.setCurrentIndex(index)
+    window._language_chosen(index)
+    assert config.load_config().language == "es"
+    assert told == [UI.LANGUAGE_RESTART]  # the running window stays in the old language
+    assert [window.language_combo.itemText(i) for i in range(1, 6)] == list(strings.LANGUAGES.values())

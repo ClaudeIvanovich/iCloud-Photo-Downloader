@@ -362,6 +362,7 @@ def build_parser() -> argparse.ArgumentParser:
     gui = sub.add_parser("gui", help="open the application window (default when no command is given)")
     gui.add_argument("--fake", type=int, metavar="N", help="demo: generated library of N assets, password 'secret'")
     gui.add_argument("--hidden", action="store_true", help="start in the tray")
+    gui.add_argument("--lang", choices=sorted(strings.LANGUAGES), help="interface language for this run")
     gui.set_defaults(func=cmd_gui)
 
     check = sub.add_parser("selfcheck", help="offline check that every part of the installation works")
@@ -394,7 +395,7 @@ def cmd_forget_credentials(_args: argparse.Namespace) -> int:
 def cmd_gui(args: argparse.Namespace) -> int:
     from .ui.app import run_gui
 
-    return run_gui(fake=args.fake, start_hidden=args.hidden)
+    return run_gui(fake=args.fake, start_hidden=args.hidden, language=args.lang)
 
 
 def main(argv: list[str] | None = None) -> int:

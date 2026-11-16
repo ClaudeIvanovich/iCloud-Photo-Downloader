@@ -92,6 +92,7 @@ class AccountConfig:
 class AppConfig:
     version: int = CONFIG_VERSION
     active_account: str | None = None  # account id
+    language: str = "auto"  # "auto" (as in Windows) or a key of strings.LANGUAGES
     accounts: dict[str, AccountConfig] = field(default_factory=dict)
 
     def account(self, apple_id: str) -> AccountConfig | None:
@@ -153,7 +154,12 @@ def load_config(path: Path | None = None) -> AppConfig:
         return AppConfig()
     data = migrate(data)
     accounts = {key: _account_from(raw) for key, raw in data.get("accounts", {}).items() if "apple_id" in raw}
-    return AppConfig(version=CONFIG_VERSION, active_account=data.get("active_account"), accounts=accounts)
+    return AppConfig(
+        version=CONFIG_VERSION,
+        active_account=data.get("active_account"),
+        language=str(data.get("language") or "auto"),
+        accounts=accounts,
+    )
 
 
 def save_config(config: AppConfig, path: Path | None = None) -> None:
@@ -163,6 +169,7 @@ def save_config(config: AppConfig, path: Path | None = None) -> None:
     payload = {
         "version": CONFIG_VERSION,
         "active_account": config.active_account,
+        "language": config.language,
         "accounts": {key: asdict(account) for key, account in config.accounts.items()},
     }
     temp = path.with_name(path.name + ".tmp")

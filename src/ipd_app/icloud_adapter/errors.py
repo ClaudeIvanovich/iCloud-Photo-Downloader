@@ -6,57 +6,58 @@ from .. import strings
 
 
 class ICloudError(Exception):
-    """Base error. `user_message` is Russian and safe to show; str() is for logs."""
+    """Base error. `user_message` is in the user's language and safe to show; str() is for logs."""
 
-    user_message = strings.ERR_ICLOUD_GENERIC
+    message_key = "ERR_ICLOUD_GENERIC"
     transient = False
 
     def __init__(self, detail: str = "") -> None:
         super().__init__(detail or type(self).__name__)
         self.detail = detail
-        if "{detail}" in self.user_message:
-            self.user_message = self.user_message.format(detail=detail or type(self).__name__)
+        # Looked up now, not at import: the language is chosen after this module loads.
+        template = getattr(strings, self.message_key)
+        self.user_message = template.format(detail=detail or type(self).__name__) if "{detail}" in template else template
 
 
 class BadCredentialsError(ICloudError):
-    user_message = strings.ERR_BAD_CREDENTIALS
+    message_key = "ERR_BAD_CREDENTIALS"
 
 
 class BadTwoFactorCodeError(ICloudError):
-    user_message = strings.ERR_BAD_2FA_CODE
+    message_key = "ERR_BAD_2FA_CODE"
 
 
 class SessionExpiredError(ICloudError):
-    user_message = strings.ERR_SESSION_EXPIRED
+    message_key = "ERR_SESSION_EXPIRED"
 
 
 class AdvancedDataProtectionError(ICloudError):
-    user_message = strings.ERR_ADP
+    message_key = "ERR_ADP"
 
 
 class WebAccessDisabledError(ICloudError):
-    user_message = strings.ERR_WEB_ACCESS
+    message_key = "ERR_WEB_ACCESS"
 
 
 class SecurityKeyRequiredError(ICloudError):
-    user_message = strings.ERR_SECURITY_KEY
+    message_key = "ERR_SECURITY_KEY"
 
 
 class LibraryNotReadyError(ICloudError):
-    user_message = strings.ERR_LIBRARY_NOT_READY
+    message_key = "ERR_LIBRARY_NOT_READY"
 
 
 class NetworkError(ICloudError):
     """Connection dropped, timeout, DNS. Worth retrying."""
 
-    user_message = strings.ERR_NETWORK
+    message_key = "ERR_NETWORK"
     transient = True
 
 
 class ServiceUnavailableError(ICloudError):
     """HTTP 429 / 5xx or throttling. Worth retrying."""
 
-    user_message = strings.ERR_UNAVAILABLE
+    message_key = "ERR_UNAVAILABLE"
     transient = True
 
 

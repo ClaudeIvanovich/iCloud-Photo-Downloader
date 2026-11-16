@@ -13,6 +13,17 @@ from ipd_app.icloud_adapter.fake_client import FakeICloudClient
 from ipd_app.sync_engine import StateDB, SyncEngine, SyncSettings
 
 UTC = timezone.utc
+
+
+@pytest.fixture(autouse=True)
+def russian_texts():
+    """The language is process-wide state: every test starts and ends with the default one."""
+    from ipd_app import strings
+
+    strings.set_language(strings.DEFAULT_LANGUAGE)
+    yield
+    strings.set_language(strings.DEFAULT_LANGUAGE)
+
 MOSCOW = timezone(timedelta(hours=3))
 
 

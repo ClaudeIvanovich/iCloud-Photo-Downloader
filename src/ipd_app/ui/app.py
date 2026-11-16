@@ -11,11 +11,11 @@ import tempfile
 import threading
 import traceback
 
-from PySide6.QtCore import QCoreApplication, QEvent, QObject, Signal
+from PySide6.QtCore import QCoreApplication, QEvent, QLibraryInfo, QLocale, QObject, QTranslator, Signal
 from PySide6.QtNetwork import QLocalServer, QLocalSocket
 from PySide6.QtWidgets import QApplication, QMessageBox
 
-from .. import __version__
+from .. import __version__, config, strings
 from ..accounts import MemoryPasswordBackend, PasswordStore
 from ..logging_setup import setup_logging
 from ..strings import UI
@@ -109,11 +109,32 @@ def build_controller(fake: int | None) -> Controller:
     return Controller(client_factory=lambda apple_id: library, passwords=PasswordStore(MemoryPasswordBackend()))
 
 
-def run_gui(fake: int | None = None, start_hidden: bool = False) -> int:
+def apply_language(app: QApplication, choice: str | None) -> str:
+    """Switch the texts, and Qt's own ones (Yes/No, calendar), before any window exists."""
+    code = strings.set_language(strings.resolve_language(choice))
+    QLocale.setDefault(QLocale(strings.LOCALE))
+    previous = getattr(app, "_ipd_translator", None)
+    if previous is not None:
+        app.removeTranslator(previous)
+    translator = QTranslator(app)
+    folder = QLibraryInfo.path(QLibraryInfo.LibraryPath.TranslationsPath)
+    # Qt speaks English without a translator; a missing file just leaves it that way.
+    if code != "en" and translator.load(QLocale(strings.LOCALE), "qtbase", "_", folder):
+        app.installTranslator(translator)
+        app._ipd_translator = translator  # noqa: SLF001 - keeps the translator alive
+    return code
+
+
+def run_gui(fake: int | None = None, start_hidden: bool = False, language: str | None = None) -> int:
     if fake is not None:
         # Keep the demo away from the real settings, sessions and state.
         os.environ["IPD_APPDATA"] = os.path.join(tempfile.gettempdir(), "iCloudPhotoDownloader-demo")
     app = QApplication.instance() or QApplication(sys.argv)
+    try:
+        saved_choice = config.load_config().language
+    except Exception:  # noqa: BLE001 - a damaged config is reported later, by the controller
+        saved_choice = strings.AUTO
+    apply_language(app, language or saved_choice)
     app.setApplicationName(UI.APP_TITLE)
     app.setApplicationVersion(__version__)
     app.setWindowIcon(icons.icon("idle"))
@@ -127,7 +148,7 @@ def run_gui(fake: int | None = None, start_hidden: bool = False) -> int:
     setup_logging()
     reporter = ErrorReporter()
     reporter.install()
-    log.info("Starting %s %s", UI.APP_TITLE, __version__)
+    log.info("Starting %s %s, language %s", UI.APP_TITLE, __version__, strings.current_language)
 
     controller = build_controller(fake)
     window = MainWindow(controller)

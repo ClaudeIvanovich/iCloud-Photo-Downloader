@@ -1,4 +1,4 @@
-; Inno Setup script. Built by build.ps1:
+﻿; Inno Setup script. Built by build.ps1:
 ;   ISCC.exe /DAppVersion=0.1.0 packaging\installer.iss
 ; Result: dist\iCloudPhotoDownloader-Setup-<version>.exe
 
@@ -41,8 +41,16 @@ MinVersion=10.0
 CloseApplications=yes
 RestartApplications=no
 
+; The installer speaks the language of Windows when it has it, otherwise English.
+; Inno Setup ships no Chinese messages, so on a Chinese Windows the installer is in
+; English; the program itself still starts in Chinese.
+ShowLanguageDialog=auto
+
 [Languages]
+Name: "english"; MessagesFile: "compiler:Default.isl"
 Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
+Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
+Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -62,6 +70,9 @@ Filename: "{app}\{#AppExe}"; Description: "{cm:LaunchProgram,{#AppName}}"; Flags
 Type: filesandordirs; Name: "{app}\_internal"
 
 [CustomMessages]
+english.RemoveSettings=Also remove the program's settings, saved passwords and iCloud sign-in data?%n%nDownloaded photos and videos stay where they are in any case.
+spanish.RemoveSettings=¿Eliminar también los ajustes del programa, las contraseñas guardadas y los datos de inicio de sesión de iCloud?%n%nLas fotos y los vídeos descargados se quedarán donde están en cualquier caso.
+brazilianportuguese.RemoveSettings=Remover também os ajustes do programa, as senhas salvas e os dados de início de sessão do iCloud?%n%nAs fotos e os vídeos baixados continuarão onde estão de qualquer forma.
 russian.RemoveSettings=Удалить также настройки программы, сохранённые пароли и данные входа в iCloud?%n%nСкачанные фото и видео в любом случае останутся на месте.
 
 [Code]

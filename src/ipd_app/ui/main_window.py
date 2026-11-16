@@ -49,13 +49,19 @@ from .dialogs import (
     sign_in_again,
 )
 
-STATE_LABELS = {
-    "idle": strings.STATUS_IDLE,
-    "counting": strings.STATUS_COUNTING,
-    "downloading": strings.STATUS_DOWNLOADING,
-    "paused": strings.STATUS_PAUSED,
-    "error": strings.STATUS_ERROR,
+# Names, not texts: the language is chosen after this module is imported.
+STATE_TEXT_NAMES = {
+    "idle": "STATUS_IDLE",
+    "counting": "STATUS_COUNTING",
+    "downloading": "STATUS_DOWNLOADING",
+    "paused": "STATUS_PAUSED",
+    "error": "STATUS_ERROR",
 }
+
+
+def state_label(state: str) -> str:
+    name = STATE_TEXT_NAMES.get(state)
+    return getattr(strings, name) if name else state
 SPEED_WINDOW_SECONDS = 5.0
 
 
@@ -156,6 +162,17 @@ class MainWindow(QMainWindow):
         tools.addWidget(self.settings_button)
         tools.addWidget(self.log_button)
         tools.addStretch(1)
+        # Every language under its own name, so the list is readable in any of them.
+        self.language_combo = QComboBox()
+        self.language_combo.setObjectName("language_combo")
+        self.language_combo.addItem(UI.LANGUAGE_AUTO, strings.AUTO)
+        for code, name in strings.LANGUAGES.items():
+            self.language_combo.addItem(name, code)
+        saved = self.language_combo.findData(controller.config.language)
+        self.language_combo.setCurrentIndex(max(saved, 0))
+        self.language_combo.activated.connect(self._language_chosen)
+        tools.addWidget(QLabel(UI.LANGUAGE))
+        tools.addWidget(self.language_combo)
 
         # --- job
         today = date.today()
@@ -163,7 +180,7 @@ class MainWindow(QMainWindow):
         self.date_to = QDateEdit(to_qdate(today))
         for edit in (self.date_from, self.date_to):
             edit.setCalendarPopup(True)
-            edit.setDisplayFormat("dd.MM.yyyy")
+            edit.setDisplayFormat(UI.DATE_DISPLAY)
         self.all_time = QCheckBox(UI.ALL_TIME)
         self.preset_this_year = QPushButton(UI.PRESET_THIS_YEAR)
         self.preset_last_year = QPushButton(UI.PRESET_LAST_YEAR)
@@ -319,6 +336,14 @@ class MainWindow(QMainWindow):
             QMessageBox.information(self, UI.APP_TITLE, UI.SWITCH_WHILE_RUNNING)
             self._refresh_accounts()
 
+    def _language_chosen(self, index: int) -> None:
+        choice = self.language_combo.itemData(index)
+        if choice == self.controller.config.language:
+            return
+        self.controller.set_language(choice)
+        if strings.resolve_language(choice) != strings.current_language:
+            QMessageBox.information(self, UI.APP_TITLE, UI.LANGUAGE_RESTART)
+
     def sign_in(self) -> None:
         if self.controller.active() is None:
             add_account(self, self.controller)
@@ -434,7 +459,7 @@ class MainWindow(QMainWindow):
         self.errors_button.setEnabled(bool(self.controller.problems()))
 
     def _on_job_state(self, state: str) -> None:
-        self.status_label.setText(UI.STATUS.format(state=STATE_LABELS.get(state, state)))
+        self.status_label.setText(UI.STATUS.format(state=state_label(state)))
         self.setWindowIcon(icons.icon("error" if state == "error" else ("active" if self.controller.is_job_running else "idle")))
         self._update_controls()
         self._tick()

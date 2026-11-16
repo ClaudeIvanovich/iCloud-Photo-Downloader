@@ -188,6 +188,11 @@ class Controller(QObject):
             return None
         return self.config.accounts.get(self.config.active_account)
 
+    def set_language(self, choice: str) -> None:
+        """Remember the language ("auto" or a code); it takes effect at the next start."""
+        self.config.language = choice
+        self.save()
+
     def set_active(self, apple_id: str) -> bool:
         """Switch the active account. Refused while a job is running."""
         if self.is_job_running:
