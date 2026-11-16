@@ -170,9 +170,9 @@ class SyncEngine:
         self._running.set()
         self._emit("status", state="downloading")
 
-    def stop(self, reason: str = strings.STOP_USER) -> None:
+    def stop(self, reason: str | None = None) -> None:
         if self._stop_reason is None:
-            self._stop_reason = reason
+            self._stop_reason = reason or strings.STOP_USER
         self._stop.set()
         self._running.set()
 

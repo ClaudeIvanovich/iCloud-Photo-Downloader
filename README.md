@@ -1,8 +1,10 @@
 # iCloud Photo Downloader для Windows
 
+Языки интерфейса: русский, English, Español, Português (Brasil), 简体中文.
+
 Скачивает фото и видео из iCloud Photos за выбранный период и раскладывает их по папкам `ГГГГ\ММ Month\Full size` (оригиналы) и `Compact` (JPG-копии). В iCloud ничего не меняет.
 
-*A Windows desktop app that downloads photos and videos from iCloud Photos for a chosen period into `YYYY\MM Month\Full size` (originals) and `Compact` (JPG copies). It is read-only: nothing in iCloud is ever changed or deleted. The interface is in Russian. English 🇬🇧, Spanish 🇪🇸 and Chinese 🇨🇳 locales are planned to be added soon.*
+*A Windows desktop app that downloads photos and videos from iCloud Photos for a chosen period into `YYYY\MM Month\Full size` (originals) and `Compact` (JPG copies). It is read-only: nothing in iCloud is ever changed or deleted. The interface is available in English, Russian, Spanish, Brazilian Portuguese and Simplified Chinese; it follows the Windows language and can be changed in the main window.*
 
 ![Главное окно](docs/screens/main_done.png)
 
@@ -65,6 +67,10 @@ uv pip install --python .venv\Scripts\python.exe -r requirements-dev.txt -e .
 ```
 
 Откроется окно. При первом запуске программа попросит войти в iCloud и выбрать папку.
+
+## Язык
+
+При первом запуске программа берёт язык Windows; если перевода на него нет, включается английский. Сменить язык можно в главном окне, в списке справа от кнопки «Журнал»; изменение действует после перезапуска. Командная строка работает только на русском.
 
 ## Попробовать без iCloud
 

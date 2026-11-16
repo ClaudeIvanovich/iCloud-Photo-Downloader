@@ -17,6 +17,7 @@ from datetime import date, datetime, timedelta, tzinfo
 from pathlib import Path
 from typing import BinaryIO
 
+from .. import strings
 from ..icloud_adapter import Asset, MediaType
 
 # No timezone is further than this from UTC.
@@ -62,7 +63,7 @@ class Period:
 
     def label(self) -> str:
         def fmt(value: date | None) -> str:
-            return value.strftime("%d.%m.%Y") if value else "…"
+            return value.strftime(strings.DATE_FORMAT) if value else "…"
 
         return f"{fmt(self.date_from)}–{fmt(self.date_to)}"
 

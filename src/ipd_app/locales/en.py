@@ -1,0 +1,218 @@
+"""English."""
+
+from __future__ import annotations
+
+LOCALE = "en_US"
+DATE_FORMAT = "%Y-%m-%d"  # unambiguous for both US and UK readers
+SIZE_UNITS = ("B", "KB", "MB", "GB", "TB")
+DECIMAL_SEPARATOR = "."
+
+ERR_BAD_CREDENTIALS = "Incorrect Apple ID or password."
+ERR_BAD_2FA_CODE = "The verification code was not accepted."
+ERR_SESSION_EXPIRED = "The session has expired, please sign in again."
+ERR_ADP = (
+    "Advanced Data Protection is turned on. It blocks web access to photos. "
+    "Turn it off in iCloud settings on your iPhone."
+)
+ERR_WEB_ACCESS = (
+    "Web access to iCloud is turned off. Turn on “Access iCloud Data on the Web” "
+    "in iCloud settings on your iPhone."
+)
+ERR_SECURITY_KEY = "Signing in with hardware security keys is not supported."
+ERR_NETWORK = "Cannot reach iCloud servers. Check your internet connection."
+ERR_UNAVAILABLE = "iCloud is temporarily unavailable or is limiting requests. Try again later."
+ERR_LIBRARY_NOT_READY = "The iCloud library is not ready yet (indexing in progress). Try again later."
+ERR_ICLOUD_GENERIC = "iCloud error: {detail}"
+
+ERR_NO_ROOT = "No download folder is selected. Choose one in the account settings."
+ERR_ROOT_UNAVAILABLE = "The folder {path} is not available. Check the drive or the network connection."
+ERR_ROOT_NOT_WRITABLE = "Cannot write to the folder {path}. Check the access permissions."
+ERR_LOW_SPACE = "Low disk space: {free} free, at least {need} needed."
+ERR_PATH_TOO_LONG = "The path is too long: {path}"
+ERR_BAD_PERIOD = "The start of the period is later than its end."
+ERR_JOB_RUNNING = "A job is already running."
+
+STATUS_IDLE = "Idle"
+STATUS_COUNTING = "Counting new files"
+STATUS_DOWNLOADING = "Downloading"
+STATUS_PAUSED = "Paused"
+STATUS_ERROR = "Error"
+
+REASON_SAME_SIZE_CONFLICT = "a file of a different size already exists at this path"
+REASON_SIZE_MISMATCH = "the downloaded file has the wrong size: {got} of {expected} bytes"
+REASON_NO_VERSION = "iCloud does not have this version of the file"
+
+PLAN_SUMMARY = (
+    "Files in the period: {total}. Already in the folder: {present}. "
+    "To download: {todo} ({size})."
+)
+PLAN_BOUNDARY = "At the edge of the period: {count} (decided by the capture time stored in the file)."
+PLAN_COMPACT = "JPG copies to create: {count}, about {size}."
+PLAN_CONFLICTS = "Conflicts: {count}."
+REPORT_SUMMARY = "Downloaded: {downloaded}. Skipped: {skipped}. Errors: {errors}. Conflicts: {conflicts}."
+REPORT_COMPACT = "JPG copies created: {made}, errors: {errors}."
+REPORT_STOPPED = "The job was stopped: {reason}"
+RESUME_PROMPT = "Continue the job {period}? Downloaded {done} of {total}."
+
+STOP_USER = "stopped by the user"
+PERIOD_ALL = "all time"
+
+
+class UI:
+    APP_TITLE = "iCloud Photo Downloader"
+    DATE_DISPLAY = "yyyy-MM-dd"
+
+    # language
+    LANGUAGE = "Language:"
+    LANGUAGE_AUTO = "Same as Windows"
+    LANGUAGE_RESTART = "The language will change after you restart the program."
+
+    # main window
+    ACCOUNT = "Account:"
+    NO_ACCOUNTS = "No accounts"
+    BTN_ACCOUNTS = "Accounts…"
+    BTN_SETTINGS = "Settings…"
+    BTN_LOG = "Log…"
+    BTN_SIGN_IN = "Sign in"
+    SESSION_UNKNOWN = "Session: not checked"
+    SESSION_CHECKING = "Session: checking…"
+    SESSION_OK = "Session: active"
+    SESSION_EXPIRED = "Session: sign-in required"
+    SESSION_ERROR = "Session: {message}"
+    GROUP_JOB = "Job for a period"
+    DATE_FROM = "From"
+    DATE_TO = "to"
+    ALL_TIME = "All time"
+    PRESET_THIS_YEAR = "This year"
+    PRESET_LAST_YEAR = "Last year"
+    PRESET_30_DAYS = "Last 30 days"
+    BTN_START = "Start job"
+    BTN_PAUSE = "Pause"
+    BTN_RESUME = "Resume"
+    BTN_STOP = "Stop"
+    HINT_BAD_PERIOD = "The start of the period is later than its end."
+    HINT_NO_ACCOUNT = "Add an account to start a job."
+    HINT_NO_ROOT = "Choose a download folder in the settings."
+    HINT_NO_SESSION = "Sign in to the account to start a job."
+    GROUP_PROGRESS = "Progress"
+    STATUS = "Status: {state}"
+    PROGRESS_FILES = "Files: {done} of {total}"
+    PROGRESS_BYTES = "Size: {done} of {total}"
+    PROGRESS_SPEED = "Speed: {speed}/s"
+    PROGRESS_ETA = "Time left: {eta}"
+    PROGRESS_CURRENT = "Now: {name}"
+    DASH = "—"
+    GROUP_LAST = "Last run"
+    LAST_NONE = "No jobs have been run yet."
+    LAST_SUMMARY = "Downloaded: {downloaded} · Skipped: {skipped} · Errors: {errors} · Conflicts: {conflicts}"
+    LAST_COMPACT = "JPG copies created: {made}, errors: {errors}"
+    LAST_STOPPED = "Stopped: {reason}"
+    BTN_SHOW_ERRORS = "Show errors"
+    BTN_OPEN_FOLDER = "Open folder"
+    ERRORS_TITLE = "Errors and conflicts"
+    ERRORS_COLUMNS = ("File", "Kind", "Reason")
+    KIND_ERROR = "error"
+    KIND_CONFLICT = "conflict"
+    KIND_COMPACT = "JPG copy"
+    ETA_SECONDS = "{s} s"
+    ETA_MINUTES = "{m} min {s} s"
+    ETA_HOURS = "{h} h {m} min"
+
+    # login
+    LOGIN_TITLE = "Sign in to iCloud"
+    APPLE_ID = "Apple ID:"
+    PASSWORD = "Password:"
+    BTN_LOGIN = "Sign in"
+    BTN_CANCEL = "Cancel"
+    LOGIN_WAIT = "Connecting to iCloud…"
+    LOGIN_NEED_FIELDS = "Enter your Apple ID and password."
+    CODE_PROMPT = "Enter the 6-digit code sent to your Apple device."
+    CODE_FIELD = "Code:"
+    BTN_CONFIRM = "Confirm"
+    BTN_SEND_SMS = "Send SMS to {number}"
+    SMS_SENT = "An SMS was sent to {number}. Enter the code from the message."
+    CODE_WAIT = "Checking the code…"
+    CODE_NEED_6 = "6 digits are required."
+    REQUIREMENTS_NOTE = (
+        "On your iPhone, “Access iCloud Data on the Web” must be turned on "
+        "and Advanced Data Protection turned off."
+    )
+
+    # accounts
+    ACCOUNTS_TITLE = "Accounts"
+    ACTIVE_MARK = " (active)"
+    BTN_ADD = "Add…"
+    BTN_SWITCH = "Make active"
+    BTN_LOGOUT = "Sign out"
+    BTN_REMOVE = "Remove"
+    BTN_CLOSE = "Close"
+    CONFIRM_LOGOUT = "Sign out of {account}? The saved password and session will be deleted."
+    CONFIRM_REMOVE = (
+        "Remove the account {account} from the program?\n\n"
+        "The saved password, the session and the account settings will be deleted. "
+        "Downloaded photos and videos will stay where they are."
+    )
+    SWITCH_WHILE_RUNNING = "Stop the job first."
+    CHOOSE_ROOT_FIRST = "Choose the folder where this account's photos will be downloaded."
+
+    # settings
+    SETTINGS_TITLE = "Settings: {account}"
+    TAB_FOLDER = "Folder"
+    TAB_COMPACT = "Compact"
+    TAB_FILTERS = "What to download"
+    TAB_DOWNLOAD = "Download"
+    ROOT_LABEL = "Root folder of the account:"
+    ROOT_EMPTY = "(not selected)"
+    BTN_CHOOSE = "Choose…"
+    ROOT_DIALOG = "Folder for photos"
+    ROOT_NOTE = "Inside it the program creates folders like 2023\\03 March\\Full size and Compact."
+    SHARED_ROOT_WARNING = (
+        "The same folder is used by {others}. Files of both accounts will end up in the same month folders."
+    )
+    COMPACT_ENABLED = "Create JPG copies of photos in the Compact folder"
+    COMPACT_SIZE = "Size of the long side:"
+    COMPACT_SIZE_ORIGINAL = "Do not resize"
+    COMPACT_SIZE_PX = "{px} px"
+    COMPACT_QUALITY = "JPG quality:"
+    COMPACT_NOTE = "If turned off, no new copies are created; existing ones are kept."
+    MEDIA_PHOTOS = "Photos"
+    MEDIA_VIDEOS = "Videos"
+    LIVE_VIDEO = "Download the video part of Live Photos"
+    EDITED = "Also download the edited version (with the _edited suffix)"
+    SOURCE_ALL = "The whole personal library"
+    SOURCE_ALBUMS = "Selected albums only:"
+    BTN_LOAD_ALBUMS = "Load the album list"
+    ALBUMS_LOADING = "Loading the album list…"
+    ALBUMS_FAILED = "Could not get the albums: {message}"
+    ALWAYS_EXCLUDED = "“Hidden”, “Recently Deleted” and shared albums are never downloaded."
+    CONCURRENCY = "Simultaneous downloads:"
+    MIN_FREE = "Stop when free space is below:"
+    GB = " GB"
+    RESTORE_DELETED = "Download again the files deleted from the folder by hand"
+    BTN_SAVE = "Save"
+    SETTINGS_LOCKED = "A job is running: settings can be changed after it stops."
+
+    # log
+    LOG_TITLE = "Log"
+    LOG_LEVEL = "Level:"
+    LOG_LEVELS = ("All", "INFO and above", "WARNING and above", "Errors only")
+    BTN_REFRESH = "Refresh"
+    BTN_OPEN_LOGS = "Open the log folder"
+
+    # tray and notifications
+    TRAY_OPEN = "Open"
+    TRAY_EXIT = "Exit"
+    TRAY_TIP_IDLE = "iCloud Photo Downloader: idle"
+    TRAY_TIP_ACTIVE = "iCloud Photo Downloader: downloading, {done} of {total}"
+    TRAY_TIP_ERROR = "iCloud Photo Downloader: error"
+    NOTE_DONE_TITLE = "Job finished"
+    NOTE_STOPPED_TITLE = "Job stopped"
+    NOTE_ERROR_TITLE = "Error"
+    NOTE_RELOGIN_TITLE = "Sign-in required"
+    NOTE_RELOGIN_TEXT = "The iCloud session has expired. Click to sign in again."
+    NOTE_TO_TRAY = "The program keeps running in the tray."
+    CONFIRM_EXIT_RUNNING = "A job is running. Stop it and exit?"
+    RESUME_TITLE = "Unfinished job"
+    UNHANDLED_TITLE = "Unexpected error"
+    UNHANDLED_TEXT = "An error occurred; the details were written to the log.\n\n{detail}"
+    ALREADY_RUNNING = "The program is already running."
