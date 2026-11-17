@@ -235,7 +235,7 @@ ui/
 ## Сборка и установка
 
 ```
-src/ipd_app/locales/      переводы интерфейса: en, es, pt_br, zh_cn, ja (русский — в strings.py)
+src/ipd_app/locales/      переводы интерфейса: en, es, pt_br, zh_cn, ja, tr (русский — в strings.py)
 build.ps1                 одна команда: тесты → exe → самопроверка → аудит → установщик
 packaging/
   launcher.py             точка входа собранной программы
