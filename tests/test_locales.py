@@ -9,12 +9,12 @@ import pytest
 
 from ipd_app import config, strings
 from ipd_app.icloud_adapter.errors import BadCredentialsError, ICloudError
-from ipd_app.locales import en, es, ja, pt_br, zh_cn
+from ipd_app.locales import en, es, ja, pt_br, tr, zh_cn
 from datetime import date
 
 from ipd_app.sync_engine import Period
 
-TRANSLATIONS = {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja}
+TRANSLATIONS = {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja, "tr": tr}
 # Identical in every language on purpose: names, units, technical words.
 SAME_AS_RUSSIAN_OK = {
     "APP_TITLE", "APPLE_ID", "TAB_COMPACT", "DASH", "COMPACT_SIZE_PX", "ETA_SECONDS", "DATE_FORMAT",
@@ -100,6 +100,7 @@ def test_unknown_language_means_the_default() -> None:
         ("auto", "zh_TW", "zh_CN"),
         ("auto", "zh-CN", "zh_CN"),
         ("auto", "ja_JP", "ja"),
+        ("auto", "tr_TR", "tr"),
         ("auto", "de_DE", "en"),
         ("auto", "", "en"),
         (None, "fr_FR", "en"),

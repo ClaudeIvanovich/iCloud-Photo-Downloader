@@ -52,6 +52,7 @@ Name: "russian"; MessagesFile: "compiler:Languages\Russian.isl"
 Name: "spanish"; MessagesFile: "compiler:Languages\Spanish.isl"
 Name: "brazilianportuguese"; MessagesFile: "compiler:Languages\BrazilianPortuguese.isl"
 Name: "japanese"; MessagesFile: "compiler:Languages\Japanese.isl"
+Name: "turkish"; MessagesFile: "compiler:Languages\Turkish.isl"
 
 [Tasks]
 Name: "desktopicon"; Description: "{cm:CreateDesktopIcon}"; GroupDescription: "{cm:AdditionalIcons}"; Flags: unchecked
@@ -75,6 +76,7 @@ english.RemoveSettings=Also remove the program's settings, saved passwords and i
 spanish.RemoveSettings=¿Eliminar también los ajustes del programa, las contraseñas guardadas y los datos de inicio de sesión de iCloud?%n%nLas fotos y los vídeos descargados se quedarán donde están en cualquier caso.
 brazilianportuguese.RemoveSettings=Remover também os ajustes do programa, as senhas salvas e os dados de início de sessão do iCloud?%n%nAs fotos e os vídeos baixados continuarão onde estão de qualquer forma.
 japanese.RemoveSettings=プログラムの設定、保存されたパスワード、iCloud のサインイン情報も削除しますか？%n%nダウンロード済みの写真とビデオは、いずれの場合もそのまま残ります。
+turkish.RemoveSettings=Programın ayarları, kaydedilmiş parolalar ve iCloud oturum açma verileri de kaldırılsın mı?%n%nİndirilen fotoğraflar ve videolar her durumda oldukları yerde kalır.
 russian.RemoveSettings=Удалить также настройки программы, сохранённые пароли и данные входа в iCloud?%n%nСкачанные фото и видео в любом случае останутся на месте.
 
 [Code]

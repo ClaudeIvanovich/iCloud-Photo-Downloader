@@ -1,10 +1,10 @@
 # iCloud Photo Downloader для Windows
 
-Языки интерфейса: русский, English, Español, Português (Brasil), 简体中文, 日本語.
+Языки интерфейса: русский, English, Español, Português (Brasil), 简体中文, 日本語, Türkçe.
 
 Скачивает фото и видео из iCloud Photos за выбранный период и раскладывает их по папкам `ГГГГ\ММ Month\Full size` (оригиналы) и `Compact` (JPG-копии). В iCloud ничего не меняет.
 
-*A Windows desktop app that downloads photos and videos from iCloud Photos for a chosen period into `YYYY\MM Month\Full size` (originals) and `Compact` (JPG copies). It is read-only: nothing in iCloud is ever changed or deleted. The interface is available in English, Russian, Spanish, Brazilian Portuguese, Simplified Chinese and Japanese; it follows the Windows language and can be changed in the main window.*
+*A Windows desktop app that downloads photos and videos from iCloud Photos for a chosen period into `YYYY\MM Month\Full size` (originals) and `Compact` (JPG copies). It is read-only: nothing in iCloud is ever changed or deleted. The interface is available in English, Russian, Spanish, Brazilian Portuguese, Simplified Chinese, Japanese and Turkish; it follows the Windows language and can be changed in the main window.*
 
 ![Главное окно](docs/screens/main_done.png)
 

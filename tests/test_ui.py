@@ -623,7 +623,7 @@ def visible_texts(widget) -> list[str]:
     return [text for text in found if text]
 
 
-@pytest.mark.parametrize("code", ["en", "es", "pt_BR", "zh_CN", "ja"])
+@pytest.mark.parametrize("code", ["en", "es", "pt_BR", "zh_CN", "ja", "tr"])
 def test_no_russian_text_is_left_in_any_window(code, controller, fake, tmp_path, qapp) -> None:
     import re
 
