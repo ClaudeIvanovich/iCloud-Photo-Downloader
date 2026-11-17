@@ -259,8 +259,9 @@ LANGUAGES = {
     "pt_BR": "Português (Brasil)",
     "zh_CN": "简体中文",
     "ja": "日本語",
+    "tr": "Türkçe",
 }
-_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN", "ja": "ja"}
+_SYSTEM_PREFIXES = {"ru": "ru", "en": "en", "es": "es", "pt": "pt_BR", "zh": "zh_CN", "ja": "ja", "tr": "tr"}
 
 
 def _texts(holder: object) -> dict[str, object]:
@@ -281,9 +282,9 @@ current_language = DEFAULT_LANGUAGE
 def _translation(code: str) -> _ModuleType | None:
     if code == DEFAULT_LANGUAGE:
         return None
-    from .locales import en, es, ja, pt_br, zh_cn
+    from .locales import en, es, ja, pt_br, tr, zh_cn
 
-    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja}[code]
+    return {"en": en, "es": es, "pt_BR": pt_br, "zh_CN": zh_cn, "ja": ja, "tr": tr}[code]
 
 
 def set_language(code: str) -> str:
